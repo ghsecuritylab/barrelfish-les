@@ -307,6 +307,28 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                                "memtest"
                                ] ]
 
+    -- ARMv7-A modules for Jetson-tk1 board
+    jetsontk1Modules_A15 = [ "/sbin/" ++ f | f <- [
+                               "cpu_tegrak1",
+                               "init",
+                               "kaluga",
+                               "mem_serv",
+                               "monitor",
+                               "proc_mgmt",
+                               "ramfsd",
+                               "serial_jetsontk1",
+                               "serial_kernel",
+                               "spawnd",
+                               "startd",
+                               "corectrl",
+                               "skb",
+                               "angler",
+                               "fish",
+                               "memtest"
+                               -- "ed",
+                               -- "examples/xmpl-span"
+                               ] ]
+
     -- ARMv7-A modules for Versatile Express EMM board (FVP)
     vExpressEMMModules_A9 = [ "/sbin/" ++ f | f <- [
                               "cpu_a9ve",
@@ -466,6 +488,12 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
        ("root", "/armv7_omap44xx_image-gdb.gdb") ])
     "Standard Pandaboard ES build image and modules",
 
+    platform "JetsonTK1" [ "armv7" ]
+    ([ ("armv7", f) | f <- jetsontk1Modules_A15] ++
+     [ ("root", "/armv7_jetsontk1_image"),
+       ("root", "/armv7_jetsontk1_image-gdb.gdb") ])
+    "Standard Jetson TK1 build image and modules",
+
     platform "VExpressEMM-A15" [ "armv7" ]
     ([ ("armv7", f) | f <- vExpressEMMModules_A15 ] ++
      [ ("root", "/armv7_a15ve_1_image"),
@@ -506,6 +534,9 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
 
     -- Build the default PandaBoard boot image
     armv7Image "armv7_omap44xx" "omap44xx" "omap44xx" "0x80000000" pandaModules,
+
+    -- Build the default Jetson-tk1 boot image
+    armv7Image "armv7_jetsontk1" "tegrak1" "tegrak1" "0x80000000" jetsontk1Modules_A15,
 
     -- Build the A15 simulation image (VersatileExpress EMM board, 1 core)
     armv7Image "armv7_a15ve_1" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
@@ -558,6 +589,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                      "armv7_a15ve_gem5",
                      "armv7_a15a7ve",
                      "armv7_omap44xx",
+                     "armv7_jetsontk1",
                      "armv7_zynq7" ]],
     Rules [ copyFile SrcTree "root" ("/hake/menu.lst." ++ p)
                      "root" ("/platforms/x86/menu.lst." ++ p)

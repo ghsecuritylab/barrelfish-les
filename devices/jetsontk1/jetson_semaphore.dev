@@ -1,0 +1,13 @@
+device jetson_semaphore msbfirst ( addr base ) "" {
+    
+    //Arbitration Semaphore Registers
+
+    register sema_gnt_st ro addr(base, 0x0) "Semaphore Granted Status Register" type(uint32);
+    
+    register sema_get wo addr(base, 0x4) "Request Arbitration Semaphore Register" type(uint32);
+
+    register sema_put rw addr(base, 0x8) "Arbitration Semaphore Put Request Register" type(uint32);
+
+    register sema_req_st ro addr(base, 0xc) "Arbitration Request Pending Status (1=PENDING) Register" type(uint32);
+    
+};

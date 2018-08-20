@@ -1,0 +1,4 @@
+device jetson_exception_vectors msbfirst ( addr base ) "" {
+  //RESET VECTOR Register
+  register reset_vector wo addr(base, 0x500) "RESET Vector Register" type(uint32);
+};
