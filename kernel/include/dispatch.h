@@ -38,7 +38,7 @@ struct guest {
  */
 struct dcb {
     dispatcher_handle_t disp;           ///< User-mode dispatcher frame pointer
-    bool                disabled;       ///< Was dispatcher disabled when last saved?
+    bool                disabled_arr[16];       ///< Was dispatcher disabled when last saved?
     struct cte          cspace;         ///< Cap slot for CSpace
     lpaddr_t            vspace;         ///< Address of VSpace root
     struct cte          disp_cte;
@@ -76,7 +76,9 @@ void fpu_lazy_bottom(struct dcb *dcb);
 void context_switch(struct dcb *dcb);
 
 /// The currently running dispatcher and FPU dispatcher
-extern struct dcb *dcb_current, *fpu_dcb;
+extern struct dcb *dcb_current[], *fpu_dcb;
+struct dcb** get_dcb_current(void);
+#define DCB_CURRENT (*get_dcb_current())
 
 void dispatch(struct dcb *dcb) __attribute__ ((noreturn));
 errval_t lmp_can_deliver_payload(struct capability *ep,
@@ -105,5 +107,11 @@ static inline uint64_t dispatch_get_csc(void)
 {
     return context_switch_counter;
 }
+
+static inline bool* get_dcb_current_disabled(void) {
+    return DCB_CURRENT->disabled_arr + cp15_get_cpu_id();
+}
+
+#define DCB_CURRENT_DISABLED (*get_dcb_current_disabled())
 
 #endif

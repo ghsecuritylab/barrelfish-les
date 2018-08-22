@@ -743,6 +743,7 @@ errors init INIT_ERR_ {
     failure MAP_BOOTINFO        "Failed to map bootinfo to child",
     failure COPY_KERNEL_CAP     "Failed to copy kernel cap to monitor",
     failure COPY_BSP_KCB        "Error copying BSP KernelControlBlock",
+    failure COPY_BSP_GROUP      "Error copying BSP Group",
     failure COPY_IPI            "Failed to copy IPI cap to monitor",
     failure COPY_PROC_MNG_CAP   "Failed to copy ProcessManager cap to monitor",
     failure COPY_PERF_MON       "Failed to copy performance monitoring cap to monitor",

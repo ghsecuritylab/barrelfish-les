@@ -957,8 +957,66 @@ static void migrate_dispatcher_request(struct monitor_binding *b,
    printf("%s:%d\n", __FUNCTION__, __LINE__);
 }
 
+static struct monitor_binding* joining_b;
+
+static void join_us_reply(struct intermon_binding *ib, coreid_t core)
+{
+    printf("join us reply received %d\n", core);
+    joining_b->tx_vtbl.combine_group_reply(joining_b, NOP_CONT, core);
+    joining_b = NULL;
+}
+
+static void combine_group_request(struct monitor_binding *b, monitor_groupid_t target_group) {
+    struct intermon_binding *ib;
+    intermon_binding_get(target_group, &ib);
+    ib->rx_vtbl.join_us_reply = join_us_reply;
+    if (joining_b) {
+      //fail
+      printf("Joining_b is not nullptr, means previous join request not finished\n");
+    }
+    joining_b = b;
+    ib->tx_vtbl.join_us_request(ib, NOP_CONT, disp_get_core_id());
+}
+
+
+struct monitor_binding *requesting_status = NULL;
+
+static void core_detach_reply_status(struct intermon_binding *ib, coreid_t id) {
+  requesting_status->tx_vtbl.core_detach_reply(requesting_status, NOP_CONT, id);
+}
+
+static void core_detach(struct monitor_binding *b, const coreid_t *cores, size_t len) {
+    for (int i = 0; i < len; i++) {
+        errval_t err = invoke_monitor_detach_core(cores[i]);
+        if (err_is_fail(err)) {
+            printf("detach core %d failed, error code is %x\n", (int)cores[i], (int)err);
+        }
+    }
+    requesting_status = b;
+    for (int i = 0; i < len; i++) {
+        errval_t err;
+        struct intermon_binding* ib;
+        intermon_binding_get(cores[i], &ib);
+        ib->rx_vtbl.core_detach_reply_status = core_detach_reply_status;
+
+        int count = 0;
+        do {
+            err = ib->tx_vtbl.core_detach_request_status(ib, NOP_CONT, disp_get_core_id());
+            messages_wait_and_handle_next();
+            count++;
+        } while (err_is_fail(err) && count < 10);
+
+        if (err_is_fail(err)) {
+            printf("detach core %d failed, error code is %x\n", (int)cores[i], (int)err);
+        } else {
+            printf("Send core detach request status successful");
+        }
+    }
+}
+
 struct monitor_rx_vtbl the_table = {
     .alloc_iref_request = alloc_iref_request,
+
     .get_service_id_request = get_service_id_request,
 
     .bind_lmp_client_request= bind_lmp_client_request,
@@ -985,6 +1043,9 @@ struct monitor_rx_vtbl the_table = {
     .span_domain_request    = span_domain_request,
 
     .migrate_dispatcher_request = migrate_dispatcher_request,
+
+    .combine_group_request = combine_group_request,
+    .core_detach = core_detach,
 };
 
 errval_t monitor_client_setup(struct spawninfo *si)

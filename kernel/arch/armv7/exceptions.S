@@ -19,6 +19,85 @@
 
 /*** Macros used in later routines. ***/
 
+.macro put_char charreg addrreg
+.endm
+
+.macro get_core_id  out
+    mrc p15, 0, \out, c0, c0, 5
+    and \out, \out, #0xF
+.endm
+
+//
+// Macro to initialize SVC pic register
+//
+.macro load_got reg
+    // Read the PL1 thread ID register, where we stored the GOT address on
+    // boot.
+    mrc     p15, 0, \reg, c13, c0, 4
+.endm
+
+// origin 指向所有核心共用的save_area
+.macro locate_save_area origin tmp
+    push {\tmp}
+    get_core_id \tmp                          // tmp = core id
+    add \tmp, \tmp, #1
+1:
+    add \origin, \origin, #SIZEOF_AREA
+    subs \tmp, \tmp, #1
+    bne 1b
+    pop {\tmp}
+.endm
+
+.macro lock_kernel lockreg constantreg tmpreg gotreg
+    clrex
+    load_got \gotreg
+    ldr \lockreg, got_group_lock
+    add \lockreg, \gotreg, \lockreg
+    ldr \constantreg, =#1
+1:
+    ldrex \tmpreg, [\lockreg]
+    teq	\tmpreg, #0
+    strexeq	\tmpreg, \constantreg, [\lockreg]
+    teqeq	\tmpreg, #0
+    bne	1b
+    clrex
+/* shared lock version 
+    clrex
+    adrl \lockreg, kernel_lock
+    ldr \constantreg, =#1
+1:
+    ldrex \tmpreg, [\lockreg]
+    teq	\tmpreg, #0
+    strexeq	\tmpreg, \constantreg, [\lockreg]
+    teqeq	\tmpreg, #0
+    bne	1b
+    clrex
+*/
+// XXX: set core id here
+//    load_got \tmpreg
+//    ldr \lockreg, got_my_core_id
+//    ldr \lockreg, [\tmpreg, \lockreg]
+//
+//    mrc p15, 0, \constantreg, c0, c0, 5
+//    and \constantreg, \constantreg, #0xF
+//
+//    str \constantreg, [\lockreg]
+.endm
+
+.macro unlock_kernel lockreg constantreg gotreg
+/* shared lock version
+    clrex
+    ldr \constantreg, =#0
+    adrl \lockreg, kernel_lock
+    str \constantreg, [\lockreg]
+*/
+    clrex
+    load_got \gotreg
+    ldr \lockreg, got_group_lock
+    ldr \constantreg, =#0
+    str \constantreg, [\gotreg, \lockreg]
+.endm
+
 //
 // Macro to initialize system mode stack.
 // Assumes that the GOT pointer is set.
@@ -34,9 +113,14 @@
 // Logical equivalent of C function with same name
 //
 .macro get_dispatcher_shared_arm out tmp
-    load_got \tmp
-    ldr      \out, dcb_current_idx
-    ldr      \out, [\tmp, \out]
+//    load_got \tmp
+//    ldr      \out, dcb_current_idx
+//    ldr      \out, [\tmp, \out]
+
+    get_core_id \tmp
+    adrl     \out, dcb_current
+    add      \out, \out, \tmp, LSL #2
+
     ldr      \out, [\out]        // out = dcb_current
     ldr      \out, [\out, #OFFSETOF_DCB_DISP] //now ptr to dispatcher_shared_arm
 .endm
@@ -49,7 +133,13 @@
 //
 .macro disp_is_disabled disp, pc, out
     // disp->disabled || (disp->crit_pc_lo <= pc && pc < disp->crit_pc_hi)
-    ldrb    \out, [\disp, #OFFSETOF_DISP_DISABLED]
+    push {\disp}
+    get_core_id \out                 // tmp = core id
+    add \disp, \disp, #OFFSETOF_DISP_DISABLED
+    add \disp, \disp, \out, LSL #2
+    ldr  \out, [\disp]
+    pop {\disp}
+//    ldrb    \out, [\disp, #OFFSETOF_DISP_DISABLED]
     cmp     \out, #1
     bhs     0f                      // disp->disabled >= 0      | disabled
                                     // disp->disabled = false
@@ -94,15 +184,6 @@
     add     \spsr_reg, \context, #(R3_REG * 4)
     pop     {r4-r7}                         // Pop spilled scratch registers
     stmda   \spsr_reg!, {r4-r7}             // And Save them
-.endm
-
-//
-// Macro to initialize SVC pic register
-//
-.macro load_got reg
-    // Read the PL1 thread ID register, where we stored the GOT address on
-    // boot.
-    mrc     p15, 0, \reg, c13, c0, 4
 .endm
 
 //
@@ -213,6 +294,37 @@ got_handle_fiq:
 got_kernel_fiq:
     .word handle_fiq_kernel(GOT)
 
+    .type got_my_core_id, STT_OBJECT
+got_my_core_id:
+    .word my_core_id(GOT)
+
+got_group_lock:
+    .word group_lock(GOT)
+
+    .global kernel_lock
+    .type kernel_lock, STT_OBJECT
+kernel_lock:
+    .word 0
+
+.global test_var1, test_var2, test_var3
+    .type test_var1, STT_OBJECT
+test_var1:
+    .word handle_fiq(GOT)
+
+    .type test_var2, STT_OBJECT
+test_var2:
+    .word handle_fiq
+
+    .type test_var3, STT_OBJECT
+test_var3:
+    .word 0
+
+.global dcb_current
+    .type dcb_current, STT_OBJECT
+dcb_current:
+    .word 0
+    .skip 8 * 16
+
 //
 // void undef_handler(void)
 //
@@ -224,6 +336,7 @@ got_kernel_fiq:
 //
 undef_handler:
     stmfd   sp!, {r0-r3}                    // Save for scratch use
+    lock_kernel r0 r1 r2 r3
     mrs     r3, spsr                        // r3 = spsr until save_context
     ands    r1, r3, #ARM_MODE_PRIV
     bne     $undef_kernel
@@ -234,6 +347,9 @@ $undef_user:
     cmp     r1, #0
     addeq   r1, r2, #OFFSETOF_DISP_ENABLED_AREA
     addne   r1, r2, #OFFSETOF_DISP_TRAP_AREA
+
+    locate_save_area r1, r3
+
     save_context r1, r3                     // r1 = save area
     enter_sys r3
     ldr r3, got_user_undef
@@ -268,6 +384,7 @@ swi_handler:
     
     // Are we in kernel mode or not?
     stmfd   sp!, {r0-r3}                    // Save for scratch use
+    lock_kernel r0 r1 r2 r3
     mrs     r3, spsr                        // r3 = spsr until save_context
     ands    r1, r3, #ARM_MODE_PRIV
     bne     $swi_kernel
@@ -278,6 +395,9 @@ $swi_user:
     cmp     r1, #0
     addeq   r0, r2, #OFFSETOF_DISP_ENABLED_AREA
     addne   r0, r2, #OFFSETOF_DISP_DISABLED_AREA
+
+    locate_save_area r0, r3
+
     save_context r0, r3                     // r0 = save area, r3 = scratch
     enter_sys r3
     // Removing these two instructions: they don't do anything
@@ -306,6 +426,7 @@ $swi_kernel:
 //
 pabt_handler:
     stmfd   sp!, {r0-r3}                    // Save for scratch use
+    //lock_kernel r0 r1 r2 r3
     sub     lr, lr, #4                      // lr = faulting pc
     mrs     r3, spsr                        // r3 = spsr until save_context
     ands    r1, r3, #ARM_MODE_PRIV
@@ -317,6 +438,9 @@ $pabt_user:
     cmp     r1, #0
     addeq   r1, r2, #OFFSETOF_DISP_ENABLED_AREA
     addne   r1, r2, #OFFSETOF_DISP_TRAP_AREA
+
+    locate_save_area r1, r3
+
     save_context r1, r3                     // r1 = save area
     enter_sys r3
     ldr r3, got_page_fault
@@ -338,6 +462,7 @@ $pabt_kernel:
 //
 dabt_handler:
     stmfd   sp!, {r0-r3}                    // Save for scratch use
+    //lock_kernel r0 r1 r2
     sub     lr, lr, #8                      // lr = faulting instruction
     mrs     r3, spsr                        // r3 = spsr until save_context
     ands    r1, r3, #ARM_MODE_PRIV
@@ -349,6 +474,9 @@ $dabt_user:
     cmp     r1, #0
     addeq   r1, r2, #OFFSETOF_DISP_ENABLED_AREA
     addne   r1, r2, #OFFSETOF_DISP_TRAP_AREA
+
+    locate_save_area r1, r3
+
     save_context    r1, r3                  // r1 = save_area
     mrc     p15, 0, r0, c6, c0, 0           // r0 = fault address
     enter_sys r3
@@ -371,17 +499,21 @@ $dabt_kernel:
 //
 irq_handler:
     stmfd   sp!, {r0-r3}                    // Save for scratch use
+    lock_kernel r0 r1 r2 r3
     sub     lr, lr, #4                      // lr = return address
     mrs     r3, spsr                        // r3 = spsr until save_context
     ands    r1, r3, #ARM_MODE_PRIV
     bne     $irq_kernel
 $irq_user:
-    get_dispatcher_shared_arm r2 r1         // r2 = cur_dcb->disp
+    get_dispatcher_shared_arm r2 r1        // r2 = cur_dcb->disp
     mov     r1, lr                          // r1 = return address
     disp_is_disabled r2, r1, r0             // r0 = 1 if disabled, else 0
     cmp     r0, #0
     addeq   r0, r2, #OFFSETOF_DISP_ENABLED_AREA
     addne   r0, r2, #OFFSETOF_DISP_DISABLED_AREA
+
+    locate_save_area r0, r3
+
     save_context    r0, r3                  // r0 = save area
     enter_sys       r3
     // Call: void handle_irq(arch_registers_state_t* save_area,
@@ -410,6 +542,7 @@ $irq_kernel:
 //
 fiq_handler:
     stmfd   sp!, {r0-r3}                    // Save for scratch use
+    lock_kernel r0 r1 r2 r3
     sub     lr, lr, #4                      // lr = return address
     mrs     r3, spsr                        // r0 = spsr until save_context
     ands    r1, r3, #ARM_MODE_PRIV
@@ -421,6 +554,9 @@ $fiq_user:
     cmp     r0, #0
     addeq   r0, r2, #OFFSETOF_DISP_ENABLED_AREA
     addne   r0, r2, #OFFSETOF_DISP_DISABLED_AREA
+
+    locate_save_area r0, r3
+
     save_context    r0, r3                  // r0 = save area
     enter_sys       r3
     mov     lr, #0
@@ -475,7 +611,35 @@ do_resume:
     vldmia lr!, {d0-d15}
     vldmia lr, {d16-d31}
     sub lr, #(5+32)*4
+
     ldmia  lr, {r13, r14}^
+
+//    adrl sp, unlock_tmp_zone_end //这里用的是svc模式的栈寄存器
+//    stmdb sp!, {r0-r2}
+//    ldmia sp, {r0-r2}
+//    mov r2, sp
+
+//    mrc p15, 0, r0, c0, c0, 5
+//    and r0, r0, #0xF
+//
+//    add r0, r0, #1 // r0 = core_id + 1
+//    sub r0, r2, r0, LSL #8   // r0 = stack_end - ((core_id + 1) << 8)
+//
+//    // 把数据从公共栈复制出去，复制出来之后压栈顺序是倒着的
+//    ldr r1, =#3 // 用作计数
+//1:
+//    ldmia sp!, {r2}
+//    stmdb r0!, {r2}
+//    subs r1, #1
+//    bne 1b
+//
+//    // 现在内核使用私有栈
+
+    push {r0-r2}
+    unlock_kernel r0 r1 r2
+    pop {r0-r2}
+//    ldmia r0, {r0-r2}
+
     // Load the (banked SVC) LR with the return address (add the offset
     // that the last ldmia couldn't).
     ldr    lr, [lr, #8]
@@ -485,3 +649,8 @@ do_resume:
 /* Any load targets for the instructions above must be within the same 4k
  * page, so we flush constants here to make sure. */
     .ltorg
+
+    .global group_save_zone
+    .type unlock_tmp_zone, STT_OBJECT
+group_save_zone:
+    .skip 8 * 17

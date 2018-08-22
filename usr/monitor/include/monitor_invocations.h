@@ -201,6 +201,18 @@ static inline errval_t invoke_get_platform_info(uintptr_t pi)
     return cap_invoke2(cap_kernel, KernelCmd_Get_platform, pi).error;
 }
 
+static inline errval_t
+invoke_monitor_join_to(int groupid)
+{
+    return cap_invoke2(cap_kernel, KernelCmd_Join_To, groupid).error;
+}
+
+static inline errval_t
+invoke_monitor_detach_core(coreid_t coreid)
+{
+    return cap_invoke2(cap_kernel, KernelCmd_Detach_Core, coreid).error;
+}
+
 
 struct capability;
 

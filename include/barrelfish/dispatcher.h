@@ -31,15 +31,18 @@ struct notificator;
 // Architecture generic user only dispatcher struct
 struct dispatcher_generic {
     /// stack for traps and disabled pagefaults
-    uintptr_t trap_stack[DISPATCHER_STACK_WORDS] __attribute__ ((aligned (16)));
+    uintptr_t trap_stack[DISPATCHER_STACK_WORDS * 8] __attribute__ ((aligned (16)));
     /// all other dispatcher upcalls run on this stack
-    uintptr_t stack[DISPATCHER_STACK_WORDS] __attribute__ ((aligned (16)));
+    uintptr_t stack[DISPATCHER_STACK_WORDS * 8] __attribute__ ((aligned (16)));
 
     /// Currently-running (or last-run) thread, if any
-    struct thread *current;
+    struct thread *current_all[8];
 
     /// Thread run queue (all threads eligible to be run)
     struct thread *runq;
+
+    /// Compute Threads
+    struct thread *cq[16];
 
     /// Cap to this dispatcher, used for creating new endpoints
     struct capref dcb_cap;

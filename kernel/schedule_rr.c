@@ -18,6 +18,8 @@
 
 #include <timer.h> // update_sched_timer
 
+#include <group.h>
+
 /**
  * \brief Scheduler policy.
  *
@@ -34,6 +36,8 @@ struct dcb *schedule(void)
     assert(kcb_current->ring_current->prev != NULL);
 
     kcb_current->ring_current = kcb_current->ring_current->next;
+
+
     #ifdef CONFIG_ONESHOT_TIMER
     update_sched_timer(kernel_now + kernel_timeslice);
     #endif

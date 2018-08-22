@@ -21,6 +21,16 @@ errval_t initialize_mem_serv(struct spawninfo *si)
 {
     errval_t err;
 
+    struct capref dest, src;
+    dest.cnode = si->taskcn;
+    dest.slot  = TASKCN_SLOT_KERNELCAP;
+    src.cnode = cnode_task;
+    src.slot  = TASKCN_SLOT_KERNELCAP;
+    err = cap_copy(dest, src);
+    if (err_is_fail(err)) {
+        return err_push(err, INIT_ERR_COPY_KERNEL_CAP);
+    }
+
     /* copy supercn to memory server */;
     struct capref init_supercn_cap = {
         .cnode = cnode_root,
@@ -61,6 +71,16 @@ errval_t initialize_monitor(struct spawninfo *si)
     err = cap_copy(dest, src);
     if (err_is_fail(err)) {
         return err_push(err, INIT_ERR_COPY_BSP_KCB);
+    }
+
+    /* Give monitor.0 the BSP Group capability */
+    dest.cnode = si->rootcn;
+    dest.slot  = ROOTCN_SLOT_BSPGROUP;
+    src.cnode = cnode_root;
+    src.slot  = ROOTCN_SLOT_BSPGROUP;
+    err = cap_copy(dest, src);
+    if (err_is_fail(err)) {
+        return err_push(err, INIT_ERR_COPY_BSP_GROUP);
     }
 
     /* Give monitor the perfmon capability */

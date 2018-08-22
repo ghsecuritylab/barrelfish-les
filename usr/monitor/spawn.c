@@ -48,7 +48,8 @@ static errval_t set_special_caps(struct spawninfo *si, const char *pname)
         }
     }
 
-    if (!strcmp(name, "kaluga")) {
+    // 把cap kernel给所有domain， 好做后面的调试
+    // if (!strcmp(name, "kaluga")) {
         src = cap_kernel;
         dest.cnode = si->taskcn,
         dest.slot  = TASKCN_SLOT_KERNELCAP;
@@ -57,7 +58,7 @@ static errval_t set_special_caps(struct spawninfo *si, const char *pname)
             DEBUG_ERR(err, "Can not give kernel cap to kaluga");
             return err_push(err, SPAWN_ERR_COPY_KERNEL_CAP);
         }
-	}
+	// }
 
     if (!strcmp(name, "proc_mgmt")) {
         // Pass ProcessManager cap.

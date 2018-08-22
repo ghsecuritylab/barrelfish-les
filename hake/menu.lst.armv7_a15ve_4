@@ -37,6 +37,7 @@ module /armv7/sbin/angler serial0.terminal dumb
 module /armv7/sbin/fish nospawn
 
 module /armv7/sbin/memtest
+module /armv7/sbin/examples/xmpl-group
 
 # gem5 simulates 512MB of RAM starting at 0x80000000
 #        start       size       id

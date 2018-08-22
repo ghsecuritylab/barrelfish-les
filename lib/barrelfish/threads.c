@@ -272,7 +272,7 @@ static void fpu_context_switch(struct dispatcher_generic *disp_gen,
     }
 
     // Switch FPU trap back on if we switch away from FPU thread
-    if(disp_gen->fpu_thread == disp_gen->current &&
+    if(disp_gen->fpu_thread == disp_gen->current_all[get_core_id()] &&
        disp_gen->fpu_thread != next) {
         fpu_trap_on();
     }
@@ -305,22 +305,22 @@ void thread_run_disabled(dispatcher_handle_t handle)
     arch_registers_state_t *enabled_area =
         dispatcher_get_enabled_save_area(handle);
 
-    if (disp_gen->current != NULL) {
+    if (disp_gen->current_all[get_core_id()] != NULL) {
         assert_disabled(disp_gen->runq != NULL);
 
         // check stack bounds
         warn_disabled(&stack_warned,
-                      thread_check_stack_bounds(disp_gen->current, enabled_area));
+                      thread_check_stack_bounds(disp_gen->current_all[get_core_id()], enabled_area));
 
-        struct thread *next = disp_gen->current->next;
+        struct thread *next = disp_gen->current_all[get_core_id()]->next;
         assert_disabled(next != NULL);
-        if (next != disp_gen->current) {
+        if (next != disp_gen->current_all[get_core_id()]) {
             fpu_context_switch(disp_gen, next);
 
             // save previous thread's state
-            arch_registers_state_t *cur_regs = &disp_gen->current->regs;
+            arch_registers_state_t *cur_regs = &disp_gen->current_all[get_core_id()]->regs;
             memcpy(cur_regs, enabled_area, sizeof(arch_registers_state_t));
-            disp_gen->current = next;
+            disp_gen->current_all[get_core_id()] = next;
             disp_resume(handle, &next->regs);
         } else {
             // same thread as before
@@ -328,13 +328,13 @@ void thread_run_disabled(dispatcher_handle_t handle)
         }
     } else if (disp_gen->runq != NULL) {
         fpu_context_switch(disp_gen, disp_gen->runq);
-        disp_gen->current = disp_gen->runq;
+        disp_gen->current_all[get_core_id()] = disp_gen->runq;
         disp->haswork = true;
         disp_resume(handle, &disp_gen->runq->regs);
     } else {
         // kernel gave us the CPU when we have nothing to do. block!
         disp->haswork = havework_disabled(handle);
-        disp_gen->current = NULL;
+        disp_gen->current_all[get_core_id()] = NULL;
         disp_yield_disabled(handle);
     }
 }
@@ -342,10 +342,10 @@ void thread_run_disabled(dispatcher_handle_t handle)
 /** Free all heap/slab-allocated state associated with a thread */
 static void free_thread(struct thread *thread)
 {
+    __asm("mov %%fs, %0" : "=r" (fs));
 #if defined(__x86_64__) // XXX: gungy segment selector stuff
     assert(thread->thread_seg_selector != 0);
     uint16_t fs;
-    __asm("mov %%fs, %0" : "=r" (fs));
     if (thread->thread_seg_selector == fs) {
         assert(thread->disp == curdispatcher());
         struct dispatcher_x86_64 *disp_priv = get_dispatcher_x86_64(thread->disp);
@@ -588,7 +588,7 @@ struct thread *thread_self(void)
     bool was_enabled;
     dispatcher_handle_t handle = disp_try_disable(&was_enabled);
     struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
-    me = disp_gen->current;
+    me = disp_gen->current_all[get_core_id()];
     if (was_enabled)
         disp_enable(handle);
 #endif
@@ -599,7 +599,7 @@ struct thread *thread_self_disabled(void)
 {
     dispatcher_handle_t handle = curdispatcher();
     struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
-    return disp_gen->current;
+    return disp_gen->current_all[get_core_id()];
 }
 
 uintptr_t thread_id(void)
@@ -748,7 +748,7 @@ void thread_yield(void)
     arch_registers_state_t *enabled_area =
         dispatcher_get_enabled_save_area(handle);
 
-    struct thread *me = disp_gen->current;
+    struct thread *me = disp_gen->current_all[get_core_id()];
     struct thread *next = me;
     me->yield_epoch = disp_gen->timeslice;
 
@@ -764,7 +764,7 @@ void thread_yield(void)
 
     if (next != me) {
         fpu_context_switch(disp_gen, next);
-        disp_gen->current = next;
+        disp_gen->current_all[get_core_id()] = next;
         disp_switch(handle, &me->regs, &next->regs);
     } else {
         assert_disabled(disp_gen->runq != NULL);
@@ -813,7 +813,7 @@ static int cleanup_thread(void *arg)
     struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
     struct dispatcher_shared_generic *disp =
         get_dispatcher_shared_generic(handle);
-    struct thread *me = disp_gen->current;
+    struct thread *me = disp_gen->current_all[get_core_id()];
     struct thread *ft =
         thread_mutex_unlock_disabled(handle, &disp_gen->cleanupthread_lock);
     assert(ft == NULL);
@@ -822,10 +822,10 @@ static int cleanup_thread(void *arg)
     struct thread *next = me->next;
     thread_remove_from_queue(&disp_gen->runq, me);
     if (next != me) {
-        disp_gen->current = next;
+        disp_gen->current_all[get_core_id()] = next;
         disp_resume(handle, &next->regs);
     } else {
-        disp_gen->current = NULL;
+        disp_gen->current_all[get_core_id()] = NULL;
         disp->haswork = havework_disabled(handle);
         disp_yield_disabled(handle);
     }
@@ -869,10 +869,10 @@ void thread_exit(int status)
         thread_remove_from_queue(&disp_gen->runq, me);
         if (next != me) {
             fpu_context_switch(disp_gen, next);
-            disp_gen->current = next;
+            disp_gen->current_all[get_core_id()] = next;
             disp_resume(handle, &next->regs);
         } else {
-            disp_gen->current = NULL;
+            disp_gen->current_all[get_core_id()] = NULL;
             disp->haswork = havework_disabled(handle);
             disp_yield_disabled(handle);
         }
@@ -910,7 +910,7 @@ void thread_exit(int status)
         thread_enqueue(dg->cleanupthread, &disp_gen->runq);
         disp_gen->cleanupthread->disp = handle;
         fpu_context_switch(disp_gen, dg->cleanupthread);
-        disp_gen->current = dg->cleanupthread;
+        disp_gen->current_all[get_core_id()] = dg->cleanupthread;
         disp_resume(handle, &dg->cleanupthread->regs);
     } else {
         // We're not detached -- wakeup joiner
@@ -941,10 +941,10 @@ void thread_exit(int status)
         thread_remove_from_queue(&disp_gen->runq, me);
         if (next != me) {
             fpu_context_switch(disp_gen, next);
-            disp_gen->current = next;
+            disp_gen->current_all[get_core_id()] = next;
             disp_resume(handle, &next->regs);
         } else {
-            disp_gen->current = NULL;
+            disp_gen->current_all[get_core_id()] = NULL;
             disp->haswork = havework_disabled(handle);
             disp_yield_disabled(handle);
         }
@@ -977,7 +977,7 @@ void *thread_block_and_release_spinlock_disabled(dispatcher_handle_t handle,
     struct dispatcher_shared_generic *disp =
         get_dispatcher_shared_generic(handle);
     struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
-    struct thread *me = disp_gen->current;
+    struct thread *me = disp_gen->current_all[get_core_id()];
     struct thread *next = me->next;
     assert_disabled(next != NULL);
 
@@ -996,11 +996,11 @@ void *thread_block_and_release_spinlock_disabled(dispatcher_handle_t handle,
     if (next != me) {
         assert_disabled(disp_gen->runq != NULL);
         fpu_context_switch(disp_gen, next);
-        disp_gen->current = next;
+        disp_gen->current_all[get_core_id()] = next;
         disp_switch(handle, &me->regs, &next->regs);
     } else {
         assert_disabled(disp_gen->runq == NULL);
-        disp_gen->current = NULL;
+        disp_gen->current_all[get_core_id()] = NULL;
         disp->haswork = havework_disabled(handle);
         trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_THREADS_C_DISP_SAVE, 2);
         disp_save(handle, &me->regs, true, CPTR_NULL);
@@ -1215,7 +1215,7 @@ void thread_init_disabled(dispatcher_handle_t handle, bool init_domain)
         get_dispatcher_shared_generic(handle);
     struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
     arch_registers_state_t *enabled_area =
-        dispatcher_get_enabled_save_area(handle);
+        dispatcher_get_enabled_save_area_by_coreid(handle, disp->curr_core_id);
 
     init_domain_global = init_domain;
 
@@ -1252,7 +1252,7 @@ void thread_init_disabled(dispatcher_handle_t handle, bool init_domain)
     // Switch to it (always on this dispatcher)
     thread->disp = handle;
     thread_enqueue(thread, &disp_gen->runq);
-    disp_gen->current = thread;
+    disp_gen->current_all[get_core_id()] = thread;
     disp->haswork = true;
     disp_resume(handle, &thread->regs);
 }
@@ -1268,7 +1268,7 @@ void thread_init_remote(dispatcher_handle_t handle, struct thread *thread)
         get_dispatcher_shared_generic(handle);
     struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
     thread_enqueue(thread, &disp_gen->runq);
-    disp_gen->current = thread;
+    disp_gen->current_all[get_core_id()] = thread;
     disp->haswork = true;
     disp_resume(handle, &thread->regs);
 }
@@ -1332,7 +1332,7 @@ void thread_pause_and_capture_state(struct thread *thread,
     if (thread->disp == dh) {
         if (!thread->paused) {
             thread->paused = true;
-            if (thread == disp->current) { // doesn't make much sense...
+            if (thread == disp->current_all[get_core_id()]) { // doesn't make much sense...
                 sys_print("Warning: pausing current thread!\n",100);
                 assert_disabled(thread->state == THREAD_STATE_RUNNABLE);
                 thread_block_disabled(dh, NULL);
@@ -1498,7 +1498,7 @@ static void exception_handler_wrapper(arch_registers_state_t *cpuframe,
     assert_disabled(me->in_exception);
     me->in_exception = false;
 
-    assert_disabled(disp_gen->current == me);
+    assert_disabled(disp_gen->current_all[get_core_id()] == me);
     disp_resume(dh, cpuframe);
 }
 
@@ -1534,7 +1534,7 @@ void thread_deliver_exception_disabled(dispatcher_handle_t handle,
                                        void *addr, arch_registers_state_t *regs)
 {
     struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
-    struct thread *thread = disp_gen->current;
+    struct thread *thread = disp_gen->current_all[get_core_id()];
     assert_disabled(thread != NULL);
     assert_disabled(disp_gen->runq != NULL);
 
@@ -1562,7 +1562,7 @@ void thread_deliver_exception_disabled(dispatcher_handle_t handle,
         }
 
         // TODO: actually delete the thread!
-        disp_gen->current = NULL;
+        disp_gen->current_all[get_core_id()] = NULL;
         thread_remove_from_queue(&disp_gen->runq, thread);
         return;
     }
@@ -1600,4 +1600,18 @@ void thread_deliver_exception_disabled(dispatcher_handle_t handle,
                           hack_arg, (lvaddr_t)addr);
 
     disp_resume(handle, &thread->regs);
+}
+
+
+struct thread *thread_create_compute(thread_func_t start_func, coreid_t core, void *arg) {
+    struct thread *newthread = thread_create_unrunnable(start_func, arg, THREADS_DEFAULT_STACK_BYTES);
+    if (newthread) {
+        // enqueue on runq
+        dispatcher_handle_t handle = disp_disable();
+        struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
+        newthread->disp = handle;
+        thread_enqueue(newthread, &disp_gen->cq[core]);
+        disp_enable(handle);
+    }
+    return newthread;
 }

@@ -53,7 +53,9 @@ unsigned int config_timeslice = CONFIG_TIMESLICE;
 uint64_t context_switch_counter = 0;
 
 /// Current execution dispatcher (when in system call or exception)
-struct dcb *dcb_current = NULL;
+struct dcb** get_dcb_current(void) {
+    return &dcb_current[cp15_get_cpu_id()];
+}
 
 /// Remembered FPU-using DCB (NULL if none)
 struct dcb *fpu_dcb = NULL;
@@ -135,22 +137,21 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
 {
 #ifdef FPU_LAZY_CONTEXT_SWITCH
     // Save state of FPU trap for this domain (treat it like normal context switched state)
-    if(dcb_current != NULL && !dcb_current->is_vm_guest) {
+    if(DCB_CURRENT != NULL && !DCB_CURRENT->is_vm_guest) {
         struct dispatcher_shared_generic *disp =
-            get_dispatcher_shared_generic(dcb_current->disp);
+            get_dispatcher_shared_generic(DCB_CURRENT->disp);
         disp->fpu_trap = fpu_trap_get();
     }
 #endif
-
     // XXX FIXME: Why is this null pointer check on the fast path ?
     // If we have nothing to do we should call something other than dispatch
     if (dcb == NULL) {
-        dcb_current = NULL;
+        DCB_CURRENT = NULL;
         wait_for_interrupt();
     }
 
     // Don't context switch if we are current already
-    if (dcb_current != dcb) {
+    if (DCB_CURRENT != dcb) {
 
 #ifdef TRACE_CSWITCH
         trace_event(TRACE_SUBSYS_KERNEL,
@@ -159,7 +160,7 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
 #endif
 
         context_switch(dcb);
-        dcb_current = dcb;
+        DCB_CURRENT = dcb;
     }
 
     assert(dcb != NULL);
@@ -175,12 +176,26 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
     }
     TRACE(KERNEL, SC_YIELD, 1);
 
-    if (dcb->disabled) {
+    int real_id = cp15_get_cpu_id();
+    if (real_id != my_core_id) {
+        struct dispatcher_shared_generic* gen = disp;
+        if (!gen->spanned) {
+            gen->spanned = true;
+            // *dispatcher_get_disabled_save_area_by_coreid(step->disp, real_id) = 
+            //     *dispatcher_get_disabled_save_area_by_coreid(step->disp, my_core_id);
+            dcb->disabled_arr[real_id] = true;
+            gen->disabled_all[real_id] = true;
+            execute(disp->dispatcher_run);
+        }
+        // no return
+    }
+
+    if (dcb->disabled_arr[cp15_get_cpu_id()]) {
         if (disp != NULL) {
-            debug(SUBSYS_DISPATCH, "resume %.*s at 0x%" PRIx64 ", %s\n",
+            debug(SUBSYS_DISPATCH, "resume %.*s at 0x%" PRIx64 ", disabled_all %s\n",
 		  DISP_NAME_LEN, disp->name,
 		  (uint64_t)registers_get_ip(disabled_area),
-		  disp->disabled ? "disp->disabled" : "disp->enabled"
+		  disp->disabled_all[cp15_get_cpu_id()]
 		);
         }
 
@@ -197,7 +212,7 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
         if (disp != NULL) {
             debug(SUBSYS_DISPATCH, "dispatch %.*s\n", DISP_NAME_LEN, disp->name);
             assert(disp->dispatcher_run != 0);
-            disp->disabled = true;
+            dispatcher_set_disabled(handle, 1);
         }
 #if defined(__x86_64__) && !defined(__k1om__)
         if(!dcb->is_vm_guest) {

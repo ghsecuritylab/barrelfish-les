@@ -157,6 +157,16 @@ static errval_t spawn(struct capref domain_cap, const char *path,
         }
     }
 
+	dest.cnode = si.taskcn;
+	dest.slot  = TASKCN_SLOT_KERNELCAP;
+	src.cnode = cnode_task;
+	src.slot  = TASKCN_SLOT_KERNELCAP;
+	err = cap_copy(dest, src);
+	if (err_is_fail(err)) {
+		//return err_push(err, INIT_ERR_COPY_KERNEL_CAP);
+	}
+
+
     /* run the domain */
     err = spawn_run(&si);
     if (err_is_fail(err)) {

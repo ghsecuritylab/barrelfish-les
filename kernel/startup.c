@@ -24,10 +24,11 @@
 #include <kcb.h>
 #include <mdb/mdb_tree.h>
 #include <trace/trace.h>
+#include <group.h>
 
 struct kcb *kcb_current = NULL;
 
-coreid_t my_core_id;
+volatile coreid_t my_core_id;
 
 /// Quick way to find the base address of a cnode capability
 #define CNODE(cte)     get_address(&(cte)->cap)
@@ -168,6 +169,15 @@ struct dcb *spawn_module(struct spawn_state *st,
         assert(bspkcb && bspkcb->cap.type == ObjType_Null);
         memcpy(&bspkcb->cap, &bspkcb_cap, sizeof(struct capability));
     }
+
+    // Group cnode
+    st->groupcn = caps_locate_slot(CNODE(rootcn), ROOTCN_SLOT_BSPGROUP);
+    err = caps_create_new(ObjType_Group, alloc_phys(OBJSIZE_GROUP), OBJSIZE_GROUP, OBJSIZE_GROUP,
+                            my_core_id, st->groupcn);
+    st->groupcn->cap.rights = CAPRIGHTS_ALLRIGHTS;
+    st->groupcn->cap.u.group.group = current_group;
+    st->groupcn->cap.u.group.coreid = my_core_id;
+    st->groupcn->cap.u.group.groupid = my_core_id;
 
     // Task cnode in root cnode
     st->taskcn = caps_locate_slot(CNODE(rootcn), ROOTCN_SLOT_TASKCN);
@@ -317,7 +327,7 @@ struct dcb *spawn_module(struct spawn_state *st,
         = local_phys_to_mem(init_dispframe_cte->cap.u.frame.base);
     struct dispatcher_shared_generic *init_disp =
         get_dispatcher_shared_generic(init_handle);
-    init_disp->disabled = true;
+    init_disp->disabled_all[cp15_get_cpu_id()] = 1;
     init_disp->fpu_trap = 1;
     strncpy(init_disp->name, argv[0], DISP_NAME_LEN);
 
@@ -328,7 +338,7 @@ struct dcb *spawn_module(struct spawn_state *st,
 
     // Set disp and add to run queue
     init_dcb->disp = init_handle;
-    init_dcb->disabled = true;
+    init_dcb->disabled_arr[cp15_get_cpu_id()] = true;
     make_runnable(init_dcb);
 
     // XXX: hack for 1:1 mapping

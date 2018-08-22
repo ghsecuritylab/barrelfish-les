@@ -8,6 +8,7 @@
  */
 
 interface intermon "The Interface between monitors" {
+    alias groupid uint32;
 
     /* XXX Aliases for base system types */
     alias coreid uint8;
@@ -208,5 +209,12 @@ interface intermon "The Interface between monitors" {
 
     message forward_kcb_rm_request(uint64 kcb_base);
     message forward_kcb_rm_response(errval err);
+
+    /* group operations */
+    message join_us_request(coreid origin_core);
+    message join_us_reply(coreid my_core);
+
+    message core_detach_request_status(coreid src_core);
+    message core_detach_reply_status(coreid core);
 };
 

@@ -60,7 +60,7 @@ void ump_endpoint_destroy(struct ump_endpoint *ep)
 errval_t ump_endpoint_register(struct ump_endpoint *ep, struct waitset *ws,
                                 struct event_closure closure)
 {
-    bool wd;
+    bool wd = false;
     dispatcher_handle_t handle = disp_try_disable(&wd);
     errval_t err;
 

@@ -102,11 +102,13 @@ void ump_init(void);
  * \param ws Waitset
  * \param closure Event handler
  */
+#include <stdio.h>
 static inline errval_t ump_chan_register_recv(struct ump_chan *uc,
                                                struct waitset *ws,
                                                struct event_closure closure)
 {
-    return ump_endpoint_register(&uc->endpoint, ws, closure);
+    errval_t t =  ump_endpoint_register(&uc->endpoint, ws, closure);
+    return t;
 }
 
 /**

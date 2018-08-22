@@ -30,6 +30,7 @@ errval_t boot_arch_app_core(int argc, char *argv[],
     coreid_t core_id = strtol(argv[1], NULL, 10);
     *ret_parent_coreid = core_id;
 
+
 #ifdef CONFIG_FLOUNDER_BACKEND_UMP_IPI
     // other monitor's channel id
     assert(strncmp("chanid", argv[2], strlen("chanid")) == 0);

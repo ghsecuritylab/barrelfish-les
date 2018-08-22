@@ -304,7 +304,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                                "skb",
                                "angler",
                                "fish",
-                               "memtest"
+                               "memtest",
+                               "examples/xmpl-group"
                                ] ]
 
     -- ARMv7-A modules for Versatile Express EMM board (FVP)

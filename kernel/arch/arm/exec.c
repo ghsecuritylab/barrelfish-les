@@ -14,6 +14,7 @@
 
 #include <kernel.h>
 
+#include <group.h>
 #include <cache.h>
 #include <dispatch.h>
 #include <init.h>
@@ -59,12 +60,13 @@ ensure_user_mode_policy(arch_registers_state_t *state)
 void __attribute__ ((noreturn))
 execute(lvaddr_t entry)
 {
-    dispatcher_handle_t handle = dcb_current->disp;
+    dispatcher_handle_t handle = DCB_CURRENT->disp;
     struct dispatcher_shared_arm *disp_arm = get_dispatcher_shared_arm(handle);
 
     arch_registers_state_t *state = &upcall_state;
     assert(0 != disp_arm->got_base);
 
+    state->named.r0 = cp15_get_cpu_id();
     /* XXX - not AArch64-compatible. */
     state->named.r9 = disp_arm->got_base;
 
@@ -104,11 +106,14 @@ void wait_for_interrupt(void)
 
     /* If we're waiting on an interrupt in the kernel, it must be because
      * there was no runnable dispatcher. */
-    assert(dcb_current == NULL);
+    assert(DCB_CURRENT == NULL);
 
     /* Let the IRQ handler know that we expect an interrupt in kernel mode, so
      * it shouldn't panic. */
     waiting_for_interrupt= 1;
+
+    /* Unlock the kernel */
+    kernel_lock = 0;
 
     /* Unmask IRQ and wait. */
     __asm volatile("cpsie i");

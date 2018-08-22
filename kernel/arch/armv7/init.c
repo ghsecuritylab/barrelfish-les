@@ -34,6 +34,7 @@
 #include <startup_arch.h>
 #include <stdio.h>
 #include <string.h>
+#include <group.h>
 
 /*
  * Forward declarations
@@ -249,6 +250,12 @@ arch_init(struct arm_core_data *boot_core_data,
 
     /* Relocate the KCB into our new address space. */
     kcb_current= (struct kcb *)(lpaddr_t)core_data->kcb;
+    kcb_current->core_id = my_core_id;
+    __asm__ volatile (
+        "str "__XSTRING(PIC_REGISTER)", %[got_base]"
+        :[got_base] "=m" (kcb_current->got_base)
+    );
+    MSG("got base is %p\n", kcb_current->got_base);
     MSG("KCB at %p\n", kcb_current);
 
     MSG("Parsing command line\n");
@@ -298,6 +305,8 @@ arch_init(struct arm_core_data *boot_core_data,
     coreboot_set_spawn_handler(CPU_ARM7, platform_boot_aps);
 
     MSG("Calling arm_kernel_startup\n");
+
+    init_group();
 
     arm_kernel_startup();
 }

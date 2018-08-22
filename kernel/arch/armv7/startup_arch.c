@@ -498,7 +498,7 @@ spawn_init_common(const char *name, int argc, const char *argv[],
         = get_dispatcher_shared_arm(init_dcb->disp);
 
     /* Initialize dispatcher */
-    disp->disabled = true;
+    dispatcher_set_disabled((dispatcher_handle_t)disp, 1);
     strncpy(disp->name, argv[0], DISP_NAME_LEN);
 
     /* tell init the vspace addr of its dispatcher */
@@ -559,7 +559,9 @@ spawn_bsp_init(const char *name)
     disp_arm->disabled_save_area.named.cpsr = ARM_MODE_USR | CPSR_F_MASK;
     disp_arm->disabled_save_area.named.r9   = got_base;
 
-    /* Create caps for init to use */
+    *dispatcher_get_disabled_save_area(init_dcb->disp) = disp_arm->disabled_save_area;
+    *dispatcher_get_enabled_save_area(init_dcb->disp) = disp_arm->enabled_save_area;
+        /* Create caps for init to use */
     create_module_caps(&spawn_state);
     lpaddr_t init_alloc_end = bsp_alloc_phys(0); // XXX
     create_phys_caps(init_alloc_end);
@@ -646,6 +648,9 @@ struct dcb *spawn_app_init(struct arm_core_data *new_core_data, const char *name
     disp_arm->disabled_save_area.named.r9   = got_base;
     arch_set_thread_register(INIT_DISPATCHER_VBASE);
 
+    *dispatcher_get_disabled_save_area(init_dcb->disp) = disp_arm->disabled_save_area;
+    *dispatcher_get_enabled_save_area(init_dcb->disp) = disp_arm->enabled_save_area;
+
     return init_dcb;
 }
 
@@ -700,9 +705,14 @@ void arm_kernel_startup(void)
     //gic_cpu_interface_enable();
 
     // Should not return
-    MSG("Calling dispatch from arm_kernel_startup, start address is=%"PRIxLVADDR"\n",
-           get_dispatcher_shared_arm(init_dcb->disp)->enabled_save_area.named.r0);
+    MSG("Calling dispatch from arm_kernel_startup, start address is=%"PRIxLVADDR", disabled is=%"PRIx32"\n",
+           get_dispatcher_shared_arm(init_dcb->disp)->enabled_save_area.named.r0, init_dcb->disabled_arr[cp15_get_cpu_id()]);
+
+    struct dispatcher_shared_generic *dispp =
+        get_dispatcher_shared_generic(init_dcb->disp);
+    dispp->curr_core_id = cp15_get_cpu_id();
+    dispp->spanned = false;
+
     dispatch(init_dcb);
     panic("Error spawning init!");
-
 }

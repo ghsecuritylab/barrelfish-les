@@ -71,6 +71,8 @@
 
 #include <barrelfish/dispatcher_arch.h>
 
+#include <barrelfish_kpi/registers_arch.h>
+
 #ifdef __arm__
 #include <boot_protocol.h>
 #include <barrelfish_kpi/arm_core_data.h>
@@ -91,7 +93,8 @@ void dummy(void)
     /* preamble */
     __asm("\n#ifndef ASMOFFSETS_H\n#define ASMOFFSETS_H\n");
     DECL(DCB_DISP, struct dcb, disp);
-    DECL(DCB_DISABLED, struct dcb, disabled);
+    DECL(DCB_DISABLED, struct dcb, disabled_arr);
+    EMIT(SIZEOF_DCB_DISABLED_ITEM, sizeof(DCB_CURRENT_DISABLED));
     // XXX: Assumes cap is first member of struct cte
     DECL(DCB_CSPACE_CAP, struct dcb, cspace.cap);
     DECL(DCB_VSPACE, struct dcb, vspace);
@@ -108,7 +111,7 @@ void dummy(void)
     DECL(CAP_L2CNODE_CNODE, struct capability, u.l2cnode.cnode);
     DECL(CAP_L1CNODE_ALLOCATED_BYTES, struct capability, u.l1cnode.allocated_bytes);
 
-    DECL(DISP_DISABLED, struct dispatcher_shared_generic, disabled);
+    DECL(DISP_DISABLED, struct dispatcher_shared_generic, disabled_all);
     DECL(DISP_RUN, struct dispatcher_shared_generic, dispatcher_run);
     DECL(DISP_LRPC, struct dispatcher_shared_generic, dispatcher_lrpc);
     DECL(DISP_UDISP, struct dispatcher_shared_generic, udisp);
@@ -116,6 +119,7 @@ void dummy(void)
     DECL(DISP_SYSTIME, struct dispatcher_shared_generic, systime);
     DECL(DISP_FPU_TRAP, struct dispatcher_shared_generic, fpu_trap);
 
+    EMIT(SIZEOF_DISP_PRIV_PER_CORE_STACK, sizeof(((struct dispatcher_generic*)0)->stack) / 4)
     DECL_LIMIT(DISP_PRIV_STACK_LIMIT, struct dispatcher_generic, stack);
     DECL_LIMIT(DISP_PRIV_TRAP_STACK_LIMIT, struct dispatcher_generic, trap_stack);
 
@@ -146,6 +150,12 @@ void dummy(void)
     DECL(DISP_ENABLED_AREA, struct dispatcher_shared_arm, enabled_save_area);
     DECL(DISP_DISABLED_AREA, struct dispatcher_shared_arm, disabled_save_area);
     DECL(DISP_TRAP_AREA, struct dispatcher_shared_arm, trap_save_area);
+
+    DECL(DISP_SAVE_AREAS, struct dispatcher_shared_arm, areas)
+    DECL(SIZEOF_SAVE_AREAS, struct dispatcher_shared_arm, areas)
+    EMIT(SIZEOF_AREA, sizeof(struct save_area));
+    
+
     DECL(DISP_GENERIC, struct dispatcher_arm, generic);
     DECL(BOOT_TARGET_MPID, struct armv7_boot_record, target_mpid);
     DECL(COREDATA_GOT_BASE, struct arm_core_data, got_base);

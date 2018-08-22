@@ -71,7 +71,8 @@
 #define ROOTCN_SLOT_SLOT_ALLOC2  9   ///< Root of slot alloc2
 #define ROOTCN_SLOT_ARGCN        10  ///< Argcn slot in root cnode
 #define ROOTCN_SLOT_BSPKCB       11  ///< BSP KCB cap to fix reverse lookup issues
-#define ROOTCN_SLOTS_USER        12  ///< First free slot in root cnode for user
+#define ROOTCN_SLOT_BSPGROUP     12  ///< Group cnode
+#define ROOTCN_SLOTS_USER        13  ///< First free slot in root cnode for user
 
 /* Size of CNodes in Root CNode if not the default size */
 #define SLOT_ALLOC_CNODE_BITS   L2_CNODE_BITS

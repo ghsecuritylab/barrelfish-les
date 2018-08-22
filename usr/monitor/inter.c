@@ -19,6 +19,7 @@
 #include <monitor.h>
 #include <barrelfish/dispatch.h>
 #include <barrelfish/spawn_client.h>
+#include <barrelfish/deferred.h>
 #include <trace/trace.h>
 #include "send_cap.h"
 #include "capops.h"
@@ -719,6 +720,25 @@ static void forward_kcb_rm_response(struct intermon_binding *b, errval_t error)
     mb->tx_vtbl.forward_kcb_rm_request_response(mb, NOP_CONT, error);
 }
 
+static void join_us_request(struct intermon_binding *b, coreid_t origin_core) 
+{
+    b->tx_vtbl.join_us_reply(b, NOP_CONT, 0);
+    printf("start joining to %d\n", (int)origin_core);
+    invoke_monitor_join_to(origin_core);
+    while (1) {
+      printf("I'm sleeping\n");
+      __asm__ volatile ("wfi\n\t");
+    }
+    ret:
+    printf("I'm wake up\n");
+}
+
+static void core_detach_request_status(struct intermon_binding *b, coreid_t src_core)
+{
+    printf("inter monitor Core detach status request get %hhu\n", src_core);
+    b->tx_vtbl.core_detach_reply_status(b, NOP_CONT, disp_get_core_id());
+}
+
 static struct intermon_rx_vtbl the_intermon_vtable = {
     .trace_caps_request = trace_caps_request,
     .trace_caps_reply = trace_caps_reply,
@@ -731,30 +751,34 @@ static struct intermon_rx_vtbl the_intermon_vtable = {
     .monitor_mem_iref_request = monitor_mem_iref_request,
     .monitor_mem_iref_reply = monitor_mem_iref_reply,
 
-    .capops_ready              = capops_ready,
-    .monitor_initialized       = monitor_initialized,
+    .capops_ready = capops_ready,
+    .monitor_initialized = monitor_initialized,
 
-    .spawnd_image_request      = spawnd_image_request,
+    .spawnd_image_request = spawnd_image_request,
 
-    .cap_send_request          = cap_send_request,
+    .cap_send_request = cap_send_request,
 
-    .span_domain_request       = span_domain_request,
-    .span_domain_reply         = span_domain_reply,
+    .span_domain_request = span_domain_request,
+    .span_domain_reply = span_domain_reply,
 
-    .add_spawnd                = add_spawnd,
+    .add_spawnd = add_spawnd,
 
-    .rsrc_join                 = inter_rsrc_join,
-    .rsrc_join_complete        = inter_rsrc_join_complete,
-    .rsrc_timer_sync           = inter_rsrc_timer_sync,
-    .rsrc_timer_sync_reply     = inter_rsrc_timer_sync_reply,
-    .rsrc_phase                = inter_rsrc_phase,
-    .rsrc_phase_data           = inter_rsrc_phase_data,
+    .rsrc_join = inter_rsrc_join,
+    .rsrc_join_complete = inter_rsrc_join_complete,
+    .rsrc_timer_sync = inter_rsrc_timer_sync,
+    .rsrc_timer_sync_reply = inter_rsrc_timer_sync_reply,
+    .rsrc_phase = inter_rsrc_phase,
+    .rsrc_phase_data = inter_rsrc_phase_data,
 
     .give_kcb_request = give_kcb_request,
     .give_kcb_response = give_kcb_response,
 
     .forward_kcb_rm_request = forward_kcb_rm_request,
     .forward_kcb_rm_response = forward_kcb_rm_response,
+
+    .join_us_request = join_us_request,
+    .core_detach_request_status = core_detach_request_status,
+
 };
 
 errval_t intermon_init(struct intermon_binding *b, coreid_t coreid)

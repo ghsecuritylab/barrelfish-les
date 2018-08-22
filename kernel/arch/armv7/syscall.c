@@ -7,6 +7,8 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#include <kcb.h>
+
 #include <kernel.h>
 
 #include <barrelfish_kpi/lmp.h>
@@ -28,6 +30,8 @@
 #include <platform.h>
 #include <startup_arch.h>
 #include <systime.h>
+#include <offsets.h>
+#include <group.h>
 
 // helper macros  for invocation handler definitions
 #define INVOCATION_HANDLER(func) \
@@ -403,7 +407,7 @@ handle_unmap(
 
     errval_t err;
     struct cte *mapping = NULL;
-    err = caps_lookup_slot(&dcb_current->cspace.cap, mapping_cptr, mapping_level,
+    err = caps_lookup_slot(&DCB_CURRENT->cspace.cap, mapping_cptr, mapping_level,
                            &mapping, CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
         printk(LOG_NOTE, "%s: caps_lookup_slot: %ld\n", __FUNCTION__, err);
@@ -459,7 +463,7 @@ handle_mapping_modify(
 INVOCATION_HANDLER(monitor_handle_retype)
 {
     assert(argc == 11);
-    return handle_retype_common(&dcb_current->cspace.cap, true, context, argc);
+    return handle_retype_common(&DCB_CURRENT->cspace.cap, true, context, argc);
 }
 
 INVOCATION_HANDLER(monitor_handle_has_descendants)
@@ -572,8 +576,9 @@ monitor_get_core_id(
     )
 {
     assert(2 == argc);
-
-    return (struct sysret) { .error = SYS_ERR_OK, .value = my_core_id };
+    uint8_t tmp = cp15_get_cpu_id();
+    // return (struct sysret) { .error = SYS_ERR_OK, .value = my_core_id };
+    return (struct sysret) { .error = SYS_ERR_OK, .value = tmp };
 }
 
 static struct sysret
@@ -746,7 +751,7 @@ monitor_create_cap(
         return SYSRET(SYS_ERR_ILLEGAL_DEST_TYPE);
     }
 
-    return SYSRET(caps_create_from_existing(&dcb_current->cspace.cap,
+    return SYSRET(caps_create_from_existing(&DCB_CURRENT->cspace.cap,
                                             cnode_cptr, cnode_level,
                                             slot, owner, src));
 }
@@ -762,6 +767,39 @@ INVOCATION_HANDLER(monitor_get_platform)
     platform_get_info((struct platform_info*)sa->arg2);
 
     return SYSRET(SYS_ERR_OK);
+}
+
+static void set_got_base_lazy(lvaddr_t got_base) {
+    lvaddr_t origin;
+    __asm__ volatile (
+        "mrc p15, 0, %[origin_got], c13, c0, 4\n\t"
+        "mcr p15, 0, %[got_base], c13, c0, 4\n\t"
+        :[origin_got] "=r" (origin)
+        :[got_base] "r" (got_base)
+    );
+    printk(LOG_ERR, "origin got_base 0x%x, new got_base 0x%x\n", origin, got_base);
+}
+
+INVOCATION_HANDLER(monitor_join_to) 
+{
+    INVOCATION_PRELUDE(3);
+    printf("join to %d\n", sa->arg2);
+    struct group* core0_group = get_group(sa->arg2);
+    lvaddr_t new_got_base = core0_group->got_base;
+    set_got_base_lazy(new_got_base);
+    for (int i = 0; i < 4; i++) {
+        printk(LOG_ERR, "group %d, addr %d, got_base %d\n", i, get_group(i), get_group(i)->got_base);
+    }
+    return sys_group_join_to(1);
+}
+
+INVOCATION_HANDLER(monitor_detach_core) 
+{
+    INVOCATION_PRELUDE(3);
+    printf("detaching core %d\n", sa->arg2);
+    struct group* mygroup = get_group(sa->arg2);
+    mygroup->detach[sa->arg2] = true;
+    return sys_group_detach_core(sa->arg2);
 }
 
 /**
@@ -797,7 +835,7 @@ monitor_identify_cap(
     int level      = sa->arg3;
     struct capability *retbuf = (void *)sa->arg4;
 
-    return sys_monitor_identify_cap(&dcb_current->cspace.cap, cptr, level, retbuf);
+    return sys_monitor_identify_cap(&DCB_CURRENT->cspace.cap, cptr, level, retbuf);
 }
 
 INVOCATION_HANDLER(monitor_identify_domains_cap)
@@ -813,7 +851,7 @@ INVOCATION_HANDLER(monitor_identify_domains_cap)
     struct capability *retbuf = (void *)sa->arg6;
 
     struct capability *root;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, root_caddr, root_level,
+    err = caps_lookup_cap(&DCB_CURRENT->cspace.cap, root_caddr, root_level,
                           &root, CAPRIGHTS_READ);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_ROOT_CAP_LOOKUP));
@@ -912,7 +950,7 @@ INVOCATION_HANDLER(handle_kcb_clone)
     uint8_t frame_level= sa->arg3;
 
     struct capability *frame_cap;
-    err= caps_lookup_cap(&dcb_current->cspace.cap, frame_cptr, frame_level,
+    err= caps_lookup_cap(&DCB_CURRENT->cspace.cap, frame_cptr, frame_level,
                          &frame_cap, CAPRIGHTS_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_CAP_NOT_FOUND));
@@ -1065,6 +1103,8 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Spawn_core]        = monitor_spawn_core,
         [KernelCmd_Unlock_cap]        = monitor_unlock_cap,
         [KernelCmd_Get_platform]      = monitor_get_platform,
+        [KernelCmd_Join_To]           = monitor_join_to,
+        [KernelCmd_Detach_Core]       = monitor_detach_core,
     },
     [ObjType_IPI] = {
         [IPICmd_Send_Start]  = monitor_spawn_core,
@@ -1093,7 +1133,7 @@ handle_invoke(arch_registers_state_t *context, int argc)
     struct sysret r = { .error = SYS_ERR_OK, .value = 0 };
 
     struct capability* to;
-    r.error = caps_lookup_cap(&dcb_current->cspace.cap,
+    r.error = caps_lookup_cap(&DCB_CURRENT->cspace.cap,
                               invoke_cptr, invoke_level,
                               &to, CAPRIGHTS_READ);
     if (err_is_ok(r.error))
@@ -1139,7 +1179,7 @@ handle_invoke(arch_registers_state_t *context, int argc)
                 STATIC_ASSERT(LMP_MSG_LENGTH == 9, "Oops");
 
                 // try to deliver message
-                r.error = lmp_deliver(to, dcb_current, msg_words,
+                r.error = lmp_deliver(to, DCB_CURRENT, msg_words,
                                       length_words, send_cptr, send_level, give_away);
 
                 /* Switch to reciever upon successful delivery
@@ -1154,7 +1194,7 @@ handle_invoke(arch_registers_state_t *context, int argc)
                    ) {
                     if (err_is_fail(r.error)) {
                         struct dispatcher_shared_generic *current_disp =
-                            get_dispatcher_shared_generic(dcb_current->disp);
+                            get_dispatcher_shared_generic(DCB_CURRENT->disp);
                         struct dispatcher_shared_generic *listener_disp =
                             get_dispatcher_shared_generic(listener->disp);
                         debug(SUBSYS_DISPATCH, "LMP failed; %.*s yields to %.*s: %u\n",
@@ -1163,16 +1203,18 @@ handle_invoke(arch_registers_state_t *context, int argc)
                     }
 
                     // special-case context switch: ensure correct state in current DCB
-                    dispatcher_handle_t handle = dcb_current->disp;
-                    struct dispatcher_shared_arm *disp =
-                        get_dispatcher_shared_arm(handle);
-                    dcb_current->disabled = dispatcher_is_disabled_ip(handle, context->named.pc);
-                    if (dcb_current->disabled) {
-                        assert(context == &disp->disabled_save_area);
+                    dispatcher_handle_t handle = DCB_CURRENT->disp;
+                    // struct dispatcher_shared_arm *disp =
+                    //     get_dispatcher_shared_arm(handle);
+                    DCB_CURRENT_DISABLED = dispatcher_is_disabled_ip(handle, context->named.pc);
+                    if (DCB_CURRENT_DISABLED) {
+                        assert(context == dispatcher_get_disabled_save_area(handle));
+                        // assert(context == &disp->disabled_save_area);
                         context->named.r0 = r.error;
                     }
                     else {
-                        assert(context == &disp->enabled_save_area);
+                        assert(context == dispatcher_get_enabled_save_area(handle));
+                        // assert(context == &disp->enabled_save_area);
                         context->named.r0 = r.error;
                     }
                     dispatch(listener);
@@ -1191,9 +1233,9 @@ handle_invoke(arch_registers_state_t *context, int argc)
                 if (invocation)
                 {
                     r = invocation(to, context, argc);
-                    if (!dcb_current)
+                    if (!DCB_CURRENT)
                     {
-                        // dcb_current was removed, dispatch someone else
+                        // DCB_CURRENT was removed, dispatch someone else
                         assert(err_is_ok(r.error));
                         dispatch(schedule());
                     }
@@ -1275,20 +1317,23 @@ void sys_syscall(arch_registers_state_t* context,
 		 uint32_t disabled,
 		 struct dispatcher_shared_arm *disp)
 {
+    // if (my_core_id != cp15_get_cpu_id()) {
+    //     for (int i = 0; i < 20; i++) printk(LOG_ERR, "fuck this shit\n");
+    // }
     // XXX
-    // Set dcb_current->disabled correctly.  This should really be
+    // Set DCB_CURRENT->disabled correctly.  This should really be
     // done in exceptions.S
     // XXX
-    assert(dcb_current != NULL);
-    assert((struct dispatcher_shared_arm *)(dcb_current->disp) == disp);
+    assert(DCB_CURRENT != NULL);
+    assert((struct dispatcher_shared_arm *)(DCB_CURRENT->disp) == disp);
     if (dispatcher_is_disabled_ip((dispatcher_handle_t)disp, context->named.pc)) {
 	assert(context == dispatcher_get_disabled_save_area((dispatcher_handle_t)disp));
-	dcb_current->disabled = true;
+	DCB_CURRENT_DISABLED = true;
     } else {
 	assert(context == dispatcher_get_enabled_save_area((dispatcher_handle_t)disp));
-	dcb_current->disabled = false;
+	DCB_CURRENT_DISABLED = false;
     }
-    assert(disabled == dcb_current->disabled);
+    assert(disabled == DCB_CURRENT_DISABLED);
 
     STATIC_ASSERT_OFFSETOF(struct sysret, error, 0);
 
@@ -1375,7 +1420,7 @@ void sys_syscall(arch_registers_state_t* context,
     context->named.r1 = r.value;
 
     debug(SUBSYS_SYSCALL, "syscall: Resuming; dcb->disabled=%d, disp->disabled=%d\n",
-	  dcb_current->disabled, disp->d.disabled);
+	  DCB_CURRENT_DISABLED, disp->d.disabled_all[cp15_get_cpu_id()]);
 
     resume(context);
 }

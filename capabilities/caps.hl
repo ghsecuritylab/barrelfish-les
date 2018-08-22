@@ -37,6 +37,9 @@ define objsize_kcb 65536; /* OBJSIZE_KCB */
  * if mappings are zero-sized they mess up range queries */
 define objsize_mapping 1;
 
+/* size of a group object */
+define objsize_group 65536;
+
 /**
     The capabilities of the whole system are listed thereafter.
     The minimal definition consists of a name and an empty body.
@@ -328,4 +331,13 @@ cap ProcessManager is_always_copy {
 cap Domain from ProcessManager {
     eq coreid coreid;  /* Core where the domain was created. */
     eq uint32 core_local_id;  /* Core-local ID of the domain. */
+};
+
+/** About Group
+*
+**/
+cap Group is_always_copy {
+    "struct group" group; /* pointer to group object */
+    eq coreid coreid;
+    eq uint32 groupid;
 };

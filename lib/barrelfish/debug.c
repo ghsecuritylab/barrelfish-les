@@ -132,7 +132,7 @@ void debug_printf(const char *fmt, ...)
 /**
  * \brief Function to do the actual printing based on the type of capability
  */
-STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(51 == ObjType_Num, "Knowledge of all cap types");
 int debug_print_cap(char *buf, size_t len, struct capability *cap)
 {
     char *mappingtype;
@@ -328,6 +328,9 @@ ObjType_Mapping:
 
     case ObjType_Null:
         return snprintf(buf, len, "Null cap (empty slot)");
+
+    case ObjType_Group:
+        return snprintf(buf, len, "Group cap, (groupdid 0x%"PRIx32")\n", cap->u.group.groupid);
 
     default:
         return snprintf(buf, len, "UNKNOWN TYPE! (%d)", cap->type);

@@ -698,7 +698,7 @@ static errval_t domain_new_dispatcher_varstack(coreid_t core_id,
 
     /* Setup dispatcher */
     disp->udisp = (lvaddr_t)handle;
-    disp->disabled = true;
+    disp->disabled_all[core_id] = 1;
     disp->fpu_trap = 1;
     disp_gen->core_id = span_domain_state->core_id;
     // Setup the dispatcher to run remote_core_init_disabled
@@ -932,10 +932,10 @@ errval_t domain_thread_move_to(struct thread *thread, coreid_t core_id)
 
     // run the next thread, if any
     if (next != thread) {
-        disp_gen->current = next;
+        disp_gen->current_all[get_core_id()] = next;
         disp_resume(mydisp, &next->regs);
     } else {
-        disp_gen->current = NULL;
+        disp_gen->current_all[get_core_id()] = NULL;
         disp->haswork = havework_disabled(mydisp);
         disp_yield_disabled(mydisp);
     }

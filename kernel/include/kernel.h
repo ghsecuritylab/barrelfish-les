@@ -35,7 +35,7 @@
 #include <schedule.h>
 #include <logging.h>
 
-extern coreid_t my_core_id;
+extern volatile coreid_t my_core_id;
 
 bool arch_core_is_bsp(void);
 

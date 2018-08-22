@@ -32,6 +32,7 @@
 #include <trace_definitions/trace_defs.h>
 #include <wakeup.h>
 #include <bitmacros.h>
+#include <group.h>
 
 // XXX: remove
 #pragma GCC diagnostic ignored "-Wsuggest-attribute=noreturn"
@@ -55,7 +56,7 @@ void caps_trace_ctrl(uint64_t types, genpaddr_t start, gensize_t size)
 
 struct capability monitor_ep;
 
-STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(51 == ObjType_Num, "Knowledge of all cap types");
 int sprint_cap(char *buf, size_t len, struct capability *cap)
 {
     char *mappingtype;
@@ -249,6 +250,9 @@ ObjType_Mapping:
     case ObjType_IPI:
         return snprintf(buf, len, "IPI cap");
 
+    case ObjType_Group:
+        return snprintf(buf, len, "Group capability");
+
     default:
         return snprintf(buf, len, "UNKNOWN TYPE! (%d)", cap->type);
     }
@@ -260,8 +264,8 @@ void caps_trace(const char *func, int line, struct cte *cte, const char *msg)
     sprint_cap(cap_buf, 512, &cte->cap);
 
     char disp_buf[64];
-    if (dcb_current) {
-        dispatcher_handle_t handle = dcb_current->disp;
+    if (DCB_CURRENT) {
+        dispatcher_handle_t handle = DCB_CURRENT->disp;
         struct dispatcher_shared_generic *disp =
             get_dispatcher_shared_generic(handle);
         snprintf(disp_buf, 64, "from %.*s", DISP_NAME_LEN, disp->name);
@@ -329,7 +333,7 @@ static errval_t set_cap(struct capability *dest, struct capability *src)
 
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(51 == ObjType_Num, "Knowledge of all cap types");
 static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t objsize)
 {
     switch(type) {
@@ -394,6 +398,13 @@ static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t o
         } else {
             return srcsize / OBJSIZE_KCB;
         }
+    
+    case ObjType_Group:
+        if (srcsize < OBJSIZE_GROUP) {
+            return 0;
+        } else {
+            return srcsize / OBJSIZE_GROUP;
+        }
 
     case ObjType_Domain:
         return L2_CNODE_SLOTS;
@@ -437,7 +448,7 @@ static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t o
  *
  * For the meaning of the parameters, see the 'caps_create' function.
  */
-STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(51 == ObjType_Num, "Knowledge of all cap types");
 
 static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
                                   gensize_t objsize, size_t count)
@@ -512,7 +523,7 @@ static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
         memset((void*)lvaddr, 0, OBJSIZE_KCB * count);
         TRACE(KERNEL, BZERO, 0);
         break;
-
+    
     default:
         debug(SUBSYS_CAPS, "Not zeroing %zu bytes @%#"PRIxLPADDR" for type %d\n",
                 (size_t)objsize * count, lpaddr, (int)type);
@@ -545,7 +556,7 @@ static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
  */
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(51 == ObjType_Num, "Knowledge of all cap types");
 
 static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
                             gensize_t objsize, size_t count, coreid_t owner,
@@ -1042,6 +1053,21 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
         }
         return SYS_ERR_OK;
 
+    case ObjType_Group:
+        assert(OBJSIZE_GROUP >= sizeof(struct group));
+        for(size_t i = 0; i < count; i++) {
+            // Initialize type specific fields
+            temp_cap.u.group.group = (struct group *)
+                (lvaddr + i * OBJSIZE_GROUP);
+            // Insert the capability
+            err = set_cap(&dest_caps[i].cap, &temp_cap);
+            if (err_is_fail(err)) {
+                return err;
+            }
+        }
+        return SYS_ERR_OK;
+
+
     default:
         panic("Unhandled capability type or capability of this type cannot"
               " be created");
@@ -1290,7 +1316,7 @@ errval_t caps_create_from_existing(struct capability *root, capaddr_t cnode_cptr
 //{{{1 Capability creation
 
 /// check arguments, return true iff ok
-STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(51 == ObjType_Num, "Knowledge of all cap types");
 #ifndef NDEBUG
 static bool check_caps_create_arguments(enum objtype type,
                                         size_t bytes, size_t objsize,
@@ -1411,7 +1437,7 @@ errval_t caps_create_new(enum objtype type, lpaddr_t addr, size_t bytes,
     return SYS_ERR_OK;
 }
 
-STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(51 == ObjType_Num, "Knowledge of all cap types");
 /// Retype caps
 /// Create `count` new caps of `type` from `offset` in src, and put them in
 /// `dest_cnode` starting at `dest_slot`.
@@ -1746,11 +1772,12 @@ errval_t caps_copy_to_cnode(struct cte *dest_cnode_cte, cslot_t dest_slot,
     assert(dest_cnode_cte->cap.type == ObjType_L1CNode ||
            dest_cnode_cte->cap.type == ObjType_L2CNode);
 
-    // only allow L2 CNodes and BSP KCB in L1 CNode
+    // only allow L2 CNodes and BSP KCB and Group in L1 CNode
     // XXX: BSPKCB should not be in rootcn...
     if (dest_cnode_cte->cap.type == ObjType_L1CNode &&
         src_cte->cap.type != ObjType_L2CNode &&
-        src_cte->cap.type != ObjType_KernelControlBlock)
+        src_cte->cap.type != ObjType_KernelControlBlock &&
+        src_cte->cap.type != ObjType_Group)
     {
         printk(LOG_WARN, "trying to copy cap type %d into cap type %d\n",
                 src_cte->cap.type, dest_cnode_cte->cap.type);
@@ -1764,7 +1791,7 @@ errval_t caps_copy_to_cnode(struct cte *dest_cnode_cte, cslot_t dest_slot,
 }
 
 /// Create copies to a cte
-STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(51 == ObjType_Num, "Knowledge of all cap types");
 errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
                           uintptr_t param1, uintptr_t param2)
 {

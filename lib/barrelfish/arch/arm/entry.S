@@ -34,6 +34,14 @@
         mrc     p15, 0, sp, c13, c0, 3
         ldr     r12, =(OFFSETOF_DISP_GENERIC +\offset)
         add     sp, sp, r12
+		mov		r1, SIZEOF_DISP_PRIV_PER_CORE_STACK
+	1:
+		cmp		r0, #0
+		beq		2f
+		sub		sp, sp, r1
+		sub		r0, r0, #1
+		b		1b
+	2:
 #else
 //XXX: this assumes we are allowed to clobber r3!
 #error "Thumb support is currently broken"

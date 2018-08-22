@@ -32,7 +32,7 @@ void boot_app_core(struct armv7_boot_record *bootrec);
 
 extern char boot_start;
 
-coreid_t my_core_id;
+volatile coreid_t my_core_id;
 
 extern union arm_l1_entry l1_low [ARM_L1_MAX_ENTRIES];
 extern union arm_l1_entry l1_high[ARM_L1_MAX_ENTRIES];

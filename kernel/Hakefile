@@ -41,6 +41,7 @@ let
                "paging_generic.c",
                "printf.c",
                "startup.c",
+               "group.c",
                "stdlib.c",
                "string.c",
                "sys_debug.c",

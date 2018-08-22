@@ -17,6 +17,11 @@
 
 #include <barrelfish_kpi/dispatcher_shared.h>
 
+struct save_area {
+    union registers_arm enabled_save_area;  ///< Enabled register save area
+    union registers_arm disabled_save_area; ///< Disabled register save area
+    union registers_arm trap_save_area;     ///< Trap register save area
+} __attribute__((packed));
 ///< Architecture specific kernel/user shared dispatcher struct
 struct dispatcher_shared_arm {
     struct dispatcher_shared_generic d; ///< Generic portion
@@ -28,7 +33,9 @@ struct dispatcher_shared_arm {
     union registers_arm enabled_save_area;  ///< Enabled register save area
     union registers_arm disabled_save_area; ///< Disabled register save area
     union registers_arm trap_save_area;     ///< Trap register save area
-};
+
+    struct save_area areas[6];
+}__attribute__((packed));
 
 static inline struct dispatcher_shared_arm*
 get_dispatcher_shared_arm(dispatcher_handle_t handle)

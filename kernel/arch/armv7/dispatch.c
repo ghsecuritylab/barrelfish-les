@@ -19,7 +19,7 @@
 /**
  * \brief Switch context to 'dcb'.
  *
- * Switch to the dispatcher pointed to by 'dcb'. Sets 'dcb_current'.
+ * Switch to the dispatcher pointed to by 'dcb'. Sets 'DCB_CURRENT'.
  *
  * \param dcb        Pointer to dispatcher to which to switch context.
  */

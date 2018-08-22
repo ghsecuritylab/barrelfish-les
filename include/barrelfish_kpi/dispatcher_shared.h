@@ -38,7 +38,7 @@ enum task_type {
 
 ///< Architecture generic kernel/user shared dispatcher struct
 struct dispatcher_shared_generic {
-    uint32_t   disabled;                        ///< Disabled flag (Must be able to change atomically)
+    uint32_t    disabled_all[8];                        ///< Disabled flag (Must be able to change atomically)
     uint32_t   haswork;                         ///< Has work (ie. is runnable) (Must be able to change atomically)
 
     lvaddr_t    udisp;                          ///< User-mode pointer to dispatcher
@@ -58,7 +58,9 @@ struct dispatcher_shared_generic {
     uint32_t    fpu_trap;                       ///< State of FPU trap
 
     uint64_t    systime_frequency;              ///< Systime frequency
-    coreid_t    curr_core_id;                   ///< Core id of current core, in this part so kernel can update
+    volatile coreid_t    curr_core_id;                   ///< Core id of current core, in this part so kernel can update
+
+    uint32_t    spanned;
 #ifdef __k1om__
     uint8_t     xeon_phi_id;
 #endif
@@ -79,7 +81,7 @@ static inline lvaddr_t get_dispatcher_vaddr(dispatcher_handle_t handle)
 static inline void dump_dispatcher(struct dispatcher_shared_generic *disp)
 {
     printf("Dump of dispatcher at address %p:\n", disp);
-    printf("  disabled      = %d (%s)\n", disp->disabled, disp->disabled ? "RESUME" : "UPCALL" );
+    printf("  disabled      = %d (%s)\n", disp->disabled_all, disp->disabled_all ? "RESUME" : "UPCALL" );
     printf("  haswork       = %d\n", disp->haswork );
     printf("  udisp         = 0x%"PRIxLVADDR"\n", disp->udisp );
     printf("  lmp_delivered = %d\n", disp->lmp_delivered );

@@ -86,11 +86,49 @@ void disp_run(dispatcher_handle_t handle)
 //    assert_print("FIXME: infinite while loop\n");
 //    while(1);
 
+    struct capref task_cap_kernel;
+    task_cap_kernel.cnode = cnode_task;
+    task_cap_kernel.slot = TASKCN_SLOT_KERNELCAP;
+    coreid_t my_core_id = -1, my_arch_id = -1;
+    my_core_id = get_core_id();
+
+    struct sysret sysret = cap_invoke1(task_cap_kernel, KernelCmd_Get_arch_id);
+    if (sysret.error == SYS_ERR_OK) {
+        my_arch_id = sysret.value;
+	} else {
+		struct dispatcher_shared_generic* disp =
+			get_dispatcher_shared_generic(handle);
+		for (int i = 0; i < 20; i++) printf("error when get core id %s\n", disp->name);
+		for(;;);
+	}
+
+
+
     struct dispatcher_generic* disp_gen = get_dispatcher_generic(handle);
     struct dispatcher_shared_generic* disp =
         get_dispatcher_shared_generic(handle);
 
-    assert_disabled(disp->disabled);
+    
+    if (my_core_id != my_arch_id) {
+        assert(disp->spanned);
+        struct thread* next = disp_gen->cq[get_core_id()];
+        if (next) {
+            struct thread* cur = disp_gen->current_all[get_core_id()];
+            if (cur == next) {
+               memcpy(&next->regs, dispatcher_get_enabled_save_area(handle), sizeof(arch_registers_state_t));
+            } else {
+                disp_gen->current_all[get_core_id()] = next;
+            }
+            disp->haswork = true;
+            disp_resume(handle, &next->regs);
+            printf("mrmrmrmrmrmr\n");
+			assert_disabled(!"disp_run: thread_run() returned!\n");
+            for(;;);
+        }
+        for(;;);
+    }
+
+    assert_disabled(dispatcher_get_disabled(handle));
     ++run_counter;
     disp_gen->timeslice++;
     // Never let 0 be a valid timeslice number
@@ -169,9 +207,9 @@ void disp_init_disabled(dispatcher_handle_t handle)
 {
     assert_disabled(handle != 0);
     struct dispatcher_generic* disp_gen = get_dispatcher_generic(handle);
-    struct dispatcher_shared_generic* disp =
-        get_dispatcher_shared_generic(handle);
-    assert_disabled(disp->disabled);
+    // struct dispatcher_shared_generic* disp =
+    //     get_dispatcher_shared_generic(handle);
+    assert_disabled(dispatcher_get_disabled(handle));
 
     // Initialize entry points (and LDT on x86_64)
     disp_arch_init(handle);
@@ -197,9 +235,9 @@ void disp_init_disabled(dispatcher_handle_t handle)
  */
 void disp_yield_disabled(dispatcher_handle_t handle)
 {
-    struct dispatcher_shared_generic* disp =
-        get_dispatcher_shared_generic(handle);
-    assert_disabled(disp->disabled);
+    // struct dispatcher_shared_generic* disp =
+    //     get_dispatcher_shared_generic(handle);
+    assert_disabled(dispatcher_get_disabled(handle));
 
 #ifdef CONFIG_DEBUG_DEADLOCKS
     disp->yieldcount++;
@@ -209,9 +247,9 @@ void disp_yield_disabled(dispatcher_handle_t handle)
     // into problems due to assumptions about segment register %fs
 //    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_THREADS_SYS_YIELD,
 //    2);
-    assert_disabled(disp->disabled);
+    assert_disabled(dispatcher_get_disabled(handle));
     sys_yield(CPTR_NULL);
-    assert_disabled(disp->disabled);
+    assert_disabled(dispatcher_get_disabled(handle));
     assert_print("dispatcher PANIC: sys_yield returned");
     for (;;);
 }
@@ -228,10 +266,11 @@ void disp_yield_disabled(dispatcher_handle_t handle)
 dispatcher_handle_t disp_disable(void)
 {
     dispatcher_handle_t handle = curdispatcher();
-    struct dispatcher_shared_generic* disp =
-        get_dispatcher_shared_generic(handle);
-    assert_disabled(disp->disabled == 0);
-    disp->disabled = 1;
+    // struct dispatcher_shared_generic* disp =
+    //     get_dispatcher_shared_generic(handle);
+    assert_disabled(dispatcher_get_disabled(handle) == 0);
+    //disp->disabled = 1;
+    dispatcher_set_disabled(handle, 1);
     return handle;
 }
 
@@ -249,12 +288,13 @@ dispatcher_handle_t disp_disable(void)
 dispatcher_handle_t disp_try_disable(bool *was_enabled)
 {
     dispatcher_handle_t handle = curdispatcher();
-    struct dispatcher_shared_generic* disp =
-        get_dispatcher_shared_generic(handle);
+    // struct dispatcher_shared_generic* disp =
+    //     get_dispatcher_shared_generic(handle);
 #ifdef __k1om__ // K1om GCC 4.7.0 does not support __atomic_* functions
     *was_enabled = __sync_bool_compare_and_swap(&disp->disabled, 0, 1);
 #else
-    *was_enabled = !__atomic_test_and_set(&disp->disabled, __ATOMIC_SEQ_CST);
+    // *was_enabled = !__atomic_test_and_set(&disp->disabled, __ATOMIC_SEQ_CST);
+    dispatcher_try_set_disabled(handle, 1, was_enabled);
 #endif
     return handle;
 }
@@ -268,10 +308,8 @@ dispatcher_handle_t disp_try_disable(bool *was_enabled)
 void disp_enable(dispatcher_handle_t handle)
 {
     assert_disabled(handle == curdispatcher());
-    struct dispatcher_shared_generic* disp =
-        get_dispatcher_shared_generic(handle);
-    assert_disabled(disp->disabled == 1);
-    disp->disabled = 0;
+    assert_disabled(dispatcher_get_disabled(handle) == 1);
+    dispatcher_set_disabled(handle, 0);
 }
 
 /**
@@ -353,7 +391,7 @@ void disp_pagefault(dispatcher_handle_t handle, lvaddr_t fault_address,
     assert_disabled(ip == registers_get_ip(regs));
 
     // sanity-check that we were on a thread
-    assert_disabled(disp_gen->current != NULL);
+    assert_disabled(disp_gen->current_all[get_core_id()] != NULL);
 
     // Save FPU context if used
 #ifdef FPU_LAZY_CONTEXT_SWITCH
@@ -428,7 +466,7 @@ void disp_pagefault_disabled(dispatcher_handle_t handle, lvaddr_t fault_address,
     // NOTE: Based on which code is is causing page fault, only assert_print
     // is safe bet to print anything here.  Anything else would cause
     // page fault in itself.
-    assert_disabled(disp->disabled);
+    assert_disabled(dispatcher_get_disabled(handle));
 
 
     // FIXME: Make sure that following are using assert_print to avoid
@@ -550,7 +588,7 @@ void disp_trap(dispatcher_handle_t handle, uintptr_t irq, uintptr_t error,
     struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
 
     // Must've happened on a thread
-    struct thread *t = disp_gen->current;
+    struct thread *t = disp_gen->current_all[get_core_id()];
     assert_disabled(t != NULL);
 
 #ifdef FPU_LAZY_CONTEXT_SWITCH

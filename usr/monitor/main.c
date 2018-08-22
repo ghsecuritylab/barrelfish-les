@@ -171,6 +171,7 @@ static errval_t boot_bsp_core(int argc, char *argv[])
 
 static errval_t boot_app_core(int argc, char *argv[])
 {
+    printf("booting app core\n");
     coreid_t parent_core_id;
     struct intermon_binding *intermon_binding;
     errval_t err;
@@ -354,6 +355,7 @@ int main(int argc, char *argv[])
 
     /* Set core id */
     err = invoke_kernel_get_core_id(cap_kernel, &my_core_id);
+    printf("monitor get core id %d\n", my_core_id);
     assert(err_is_ok(err));
     disp_set_core_id(my_core_id);
 

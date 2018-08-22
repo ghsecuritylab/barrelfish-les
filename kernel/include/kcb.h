@@ -69,6 +69,11 @@ struct kcb {
     uint8_t irq_in_use[NDISPATCH / 8]; // Bitmap of handed out caps.
     struct cte irq_dispatch[NDISPATCH];
     // TODO: maybe add a shared part which can replace struct core_data?
+    
+
+    // group test
+    coreid_t core_id;
+    lpaddr_t got_base;
 };
 
 ///< The kernel control block

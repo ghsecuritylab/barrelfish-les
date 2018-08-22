@@ -56,11 +56,17 @@ STATIC_ASSERT(PC_REG   == 16, "broken context assumption");
 static void __attribute__((naked)) __attribute__((noinline))
 disp_resume_context(struct dispatcher_shared_generic *disp, uint32_t *regs)
 {
+    dispatcher_set_disabled(curdispatcher(), 0);
+    __asm volatile(
+        "mov r0, %[disp]\n\t"
+        "mov r1, %[regs]\n\t"
+        ::[disp]"r"(disp), [regs]"r"(regs)
+    );
     __asm volatile(
         "    clrex\n\t"
         /* Re-enable dispatcher */
-        "    mov     r2, #0                                             \n\t"
-        "    str     r2, [r0, # " XTR(OFFSETOF_DISP_DISABLED) "]        \n\t"
+        // "    mov     r2, #0                                             \n\t"
+        // "    str     r2, [r0, # " XTR(OFFSETOF_DISP_DISABLED) "]        \n\t"
         /* Restore cpsr condition bits  */
         "    ldr     r0, [r1], #4                                       \n\t"
         "    msr     cpsr, r0                                           \n\t"
@@ -117,7 +123,7 @@ disp_resume(dispatcher_handle_t handle,
     //    function bounds.
 
     assert_disabled(curdispatcher() == handle);
-    assert_disabled(disp->d.disabled);
+    assert_disabled(dispatcher_get_disabled(handle) == 1);
     assert_disabled(disp->d.haswork);
 
 #ifdef CONFIG_DEBUG_DEADLOCKS
@@ -154,7 +160,7 @@ void disp_switch(dispatcher_handle_t handle,
     __asm volatile("" : /*out*/ : /*in*/ : "r0", "r1", "r2" );
 
     assert_disabled(curdispatcher() == handle);
-    assert_disabled(disp->d.disabled);
+    assert_disabled(dispatcher_get_disabled(handle));
     assert_disabled(disp->d.haswork);
     assert_disabled(to_state != NULL);
 
@@ -182,8 +188,8 @@ void disp_save(dispatcher_handle_t handle,
                arch_registers_state_t *state,
                bool yield, capaddr_t yield_to)
 {
-    struct dispatcher_shared_arm *disp =
-        get_dispatcher_shared_arm(handle);
+    // struct dispatcher_shared_arm *disp =
+    //     get_dispatcher_shared_arm(handle);
 
     // make sure arguments survive call to disp_save_context()
     // not sure if our code has a subtle bug or whether ARMv7 GCC
@@ -193,7 +199,7 @@ void disp_save(dispatcher_handle_t handle,
     __asm volatile("" : /*out*/ : /*in*/ : "r0", "r1", "r2" );
 
     assert_disabled(curdispatcher() == handle);
-    assert_disabled(disp->d.disabled);
+    assert_disabled(dispatcher_get_disabled(handle));
 
     disp_save_context(state->regs);
     state->named.pc = (lvaddr_t)disp_save_epilog;
@@ -214,13 +220,13 @@ void disp_save(dispatcher_handle_t handle,
 void disp_save_rm_kcb(void)
 {
     dispatcher_handle_t handle = disp_disable();
-    struct dispatcher_shared_arm *disp =
-        get_dispatcher_shared_arm(handle);
+    // struct dispatcher_shared_arm *disp =
+    //     get_dispatcher_shared_arm(handle);
     arch_registers_state_t *state =
         dispatcher_get_enabled_save_area(handle);
 
     assert_disabled(curdispatcher() == handle);
-    assert_disabled(disp->d.disabled);
+    assert_disabled(dispatcher_get_disabled(handle));
 
     disp_save_context(state->regs);
     state->named.pc = (lvaddr_t)disp_save_rm_kcb_epilog;
@@ -235,6 +241,9 @@ void disp_save_rm_kcb(void)
 }
 
 
+#define UPCALL_LOCK_WRAPPER(upcall) sync_##upcall() {\
+\
+}
 /**
  * \brief Architecture-specific dispatcher initialisation
  */

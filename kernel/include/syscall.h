@@ -127,4 +127,6 @@ struct sysret sys_monitor_clear_step(capaddr_t ret_cn_addr,
                                      uint8_t ret_cn_bits,
                                      cslot_t ret_slot);
 
+struct sysret sys_group_join_to(int id);
+struct sysret sys_group_detach_core(int id);
 #endif

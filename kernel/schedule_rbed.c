@@ -63,6 +63,8 @@
 #include <systime.h>
 #endif
 
+#include <group.h>
+
 #define SPECTRUM        1000000
 
 /**
@@ -294,6 +296,21 @@ static void set_best_effort_wcet(struct dcb *dcb)
  */
 struct dcb *schedule(void)
 {
+    coreid_t real_id = cp15_get_cpu_id();
+    if (real_id != my_core_id) {
+        // 做一点trick吧这里，只调度core2上的xmpl-group
+        struct group* my_group = get_group(my_core_id);
+        struct kcb* my_kcb = my_group->kcb_list_head.kcb;
+        struct dcb* step = my_kcb->queue_head;
+        while (step) {
+            if (strcmp(get_disp_name(step), "xmpl-group") == 0) {
+                return step;
+            }
+            step = step->next;
+        }
+        return NULL;
+    }
+
     struct dcb *todisp;
     systime_t now = systime_now();
 
@@ -374,10 +391,10 @@ struct dcb *schedule(void)
 
         // If nothing changed, run whatever ran last (task might have
         // yielded to another), unless it is blocked
-        if(lastdisp == todisp && dcb_current != NULL && in_queue(dcb_current)) {
+        if(lastdisp == todisp && DCB_CURRENT != NULL && in_queue(DCB_CURRENT)) {
             /* trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_SCHED_CURRENT, */
-            /*             (uint32_t)(lvaddr_t)dcb_current & 0xFFFFFFFF); */
-            return dcb_current;
+            /*             (uint32_t)(lvaddr_t)DCB_CURRENT & 0xFFFFFFFF); */
+            return DCB_CURRENT;
         }
 
         /* trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_SCHED_SCHEDULE, */

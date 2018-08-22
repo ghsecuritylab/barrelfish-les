@@ -321,13 +321,16 @@ static errval_t spawn_setup_dispatcher(struct spawninfo *si,
     struct dispatcher_shared_generic *disp =
         get_dispatcher_shared_generic(handle);
     struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
+    struct dispatcher_shared_generic *disp_sgen = get_dispatcher_shared_generic(handle);
     arch_registers_state_t *enabled_area =
-        dispatcher_get_enabled_save_area(handle);
+        dispatcher_get_enabled_save_area_by_coreid(handle, core_id);
     arch_registers_state_t *disabled_area =
-        dispatcher_get_disabled_save_area(handle);
+        dispatcher_get_disabled_save_area_by_coreid(handle, core_id);
 
     /* Place core_id */
     disp_gen->core_id = core_id;
+    disp_sgen->curr_core_id = core_id;
+    disp_sgen->spanned = false;
 
     /* place eh information */
     disp_gen->eh_frame = si->eh_frame;
@@ -337,7 +340,7 @@ static errval_t spawn_setup_dispatcher(struct spawninfo *si,
 
     /* Setup dispatcher and make it runnable */
     disp->udisp = spawn_dispatcher_base;
-    disp->disabled = 1;
+    disp->disabled_all[core_id] = 1;
     disp->fpu_trap = 1;
 #ifdef __k1om__
     disp->xeon_phi_id = disp_xeon_phi_id();
@@ -462,7 +465,7 @@ int spawn_tokenize_cmdargs(char *s, char *argv[], size_t argv_len)
  * \param envp   Environment, NULL-terminated
  */
 static errval_t spawn_setup_env(struct spawninfo *si,
-                                char *const argv[], char *const envp[])
+                                char *const argv[], char *const envp[], coreid_t coreid)
 {
     errval_t err;
 
@@ -551,8 +554,10 @@ static errval_t spawn_setup_env(struct spawninfo *si,
     params->tls_total_len = si->tls_total_len;
 
     arch_registers_state_t *enabled_area =
-        dispatcher_get_enabled_save_area(si->handle);
+        dispatcher_get_enabled_save_area_by_coreid(si->handle, coreid);
     registers_set_param(enabled_area, (uintptr_t)spawn_args_base);
+
+    printf("spawn core id: %d\n", get_core_id());
 
     return SYS_ERR_OK;
 }
@@ -793,10 +798,13 @@ errval_t spawn_load_image(struct spawninfo *si, lvaddr_t binary,
     }
 
     /* Setup cmdline args */
-    err = spawn_setup_env(si, argv, envp);
+    err = spawn_setup_env(si, argv, envp, coreid);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_SETUP_ENV);
     }
+
+    *dispatcher_get_disabled_save_area_shared(si->handle) = *dispatcher_get_disabled_save_area_by_coreid(si->handle, coreid);
+    *dispatcher_get_enabled_save_area_shared(si->handle) = *dispatcher_get_enabled_save_area_by_coreid(si->handle, coreid);
 
     return SYS_ERR_OK;
 }
@@ -853,7 +861,7 @@ errval_t spawn_load_with_args(struct spawninfo *si, struct mem_region *module,
     }
 
     /* Setup cmdline args */
-    err = spawn_setup_env(si, argv, envp);
+    err = spawn_setup_env(si, argv, envp, coreid);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_SETUP_ENV);
     }
@@ -963,7 +971,7 @@ errval_t spawn_load_with_bootinfo(struct spawninfo *si, struct bootinfo *bi,
     spawn_tokenize_cmdargs(args, argv, ARRAY_LENGTH(argv));
 
     // Setup
-    err = spawn_setup_env(si, argv, environ);
+    err = spawn_setup_env(si, argv, environ, coreid);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_SETUP_ENV);
     }

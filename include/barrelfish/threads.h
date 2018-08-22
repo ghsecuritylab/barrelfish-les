@@ -123,6 +123,7 @@ static inline void thread_once(thread_once_t *control, void (*func)(void)) {
  */
 void thread_set_status(int status);
 
+struct thread *thread_create_compute(thread_func_t start_func, coreid_t core, void *arg);
 __END_DECLS
 
 #endif  // LIBBARRELFISH_THREADS_H
