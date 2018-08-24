@@ -58,12 +58,19 @@ struct group* get_cur_group_by_coreid(coreid_t coreid)
 
 struct group* set_cur_group_by_coreid(coreid_t coreid, struct group* g)
 {
+    // here should be more state maintain
+    // 比如说当前group都包含了哪些core
     return global_group_mgmt->cur_group[coreid] = g;
 }
 
 struct group* get_cur_group(void)
 {
-    return get_cur_group_by_coreid(get_real_cpu_id());
+    coreid_t id = get_real_cpu_id();
+    if (global_group_mgmt->lazy_load_target_group[id]) {
+        set_cur_group_by_coreid(id, global_group_mgmt->lazy_load_target_group[id]);
+        global_group_mgmt->lazy_load_target_group[id] = NULL;
+    }
+    return get_cur_group_by_coreid(id);
 }
 
 static void group_init_common(void)

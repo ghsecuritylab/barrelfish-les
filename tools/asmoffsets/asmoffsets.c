@@ -96,6 +96,7 @@ void dummy(void)
 
     // for group
     DECL(GROUP_MGMT_CURGROUP, struct group_mgmt, cur_group);
+    DECL(GROUP_MGMT_LAZY_LOAD_TARGET_GROUP, struct group_mgmt, lazy_load_target_group);
     DECL(GROUP_PER_CORE_STATE, struct group, per_core_state);
     DECL(GROUP_PER_CORE_STATE_DCB_CURRENT, struct group_per_core_state, dcb_current);
     EMIT(SIZEOF_GROUP, sizeof(struct group));

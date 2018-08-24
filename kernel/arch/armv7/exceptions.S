@@ -74,8 +74,16 @@
 // Logical equivalent of C function with same name
 //
 .macro get_dispatcher_shared_arm out tmp
+    // check lazy load
     ldr      \out, global_group_mgmt
+    add      \out, \out, #OFFSETOF_GROUP_MGMT_LAZY_LOAD_TARGET_GROUP
+    get_core_id \tmp
+    index_array \out, \tmp, #SIZEOF_GROUP_PTR // addr of lazy load target group
+    ldr      \out, [\out]
+    cmp      \out, #0
+    bne      1f
 
+    ldr      \out, global_group_mgmt
     add      \out, \out, #OFFSETOF_GROUP_MGMT_CURGROUP
     get_core_id \tmp
     index_array \out, \tmp, #SIZEOF_GROUP_PTR // addr of cur group ptr
@@ -87,6 +95,7 @@
     ldr      \out, [\out, #OFFSETOF_GROUP_PER_CORE_STATE_DCB_CURRENT]
 
     ldr      \out, [\out, #OFFSETOF_DCB_DISP] //now ptr to dispatcher_shared_arm
+1:
 .endm
 
 //

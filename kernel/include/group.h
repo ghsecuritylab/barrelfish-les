@@ -28,6 +28,8 @@ struct group {
 struct group_mgmt {
     struct group groups[MAX_CORE];      // 本机上所有的Group
     struct group* cur_group[MAX_CORE];  // 每个Core当前所属的Group
+
+    struct group* lazy_load_target_group[MAX_CORE];
 };
 
 extern struct group_mgmt *global_group_mgmt;
