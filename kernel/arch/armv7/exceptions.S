@@ -34,6 +34,30 @@
 1:
 .endm
 
+.macro lock_kernel lockreg constantreg tmpreg gotreg
+    clrex
+    load_got \gotreg
+    ldr \lockreg, got_kernel_lock
+    add \lockreg, \gotreg, \lockreg
+    ldr \constantreg, =#1
+1:
+    ldrex \tmpreg, [\lockreg]
+    teq        \tmpreg, #0
+    strexeq    \tmpreg, \constantreg, [\lockreg]
+    teqeq      \tmpreg, #0
+    bne        1b
+    clrex
+.endm
+
+.macro unlock_kernel lockreg constantreg gotreg
+    clrex
+    load_got \gotreg
+    ldr \lockreg, got_kernel_lock
+    ldr \constantreg, =#0
+    str \constantreg, [\gotreg, \lockreg]
+.endm
+
+
 //
 // Macro to initialize system mode stack.
 // Assumes that the GOT pointer is set.
@@ -235,6 +259,10 @@ got_kernel_fiq:
 global_group_mgmt:
     .word 0,0
 
+    .type got_kernel_lock, STT_OBJECT
+got_kernel_lock:
+    .word kernel_lock(GOT)
+
 //
 // void undef_handler(void)
 //
@@ -246,6 +274,7 @@ global_group_mgmt:
 //
 undef_handler:
     stmfd   sp!, {r0-r3}                    // Save for scratch use
+    lock_kernel r0 r1 r2 r3
     mrs     r3, spsr                        // r3 = spsr until save_context
     ands    r1, r3, #ARM_MODE_PRIV
     bne     $undef_kernel
@@ -290,6 +319,7 @@ swi_handler:
     
     // Are we in kernel mode or not?
     stmfd   sp!, {r0-r3}                    // Save for scratch use
+    lock_kernel r0 r1 r2 r3
     mrs     r3, spsr                        // r3 = spsr until save_context
     ands    r1, r3, #ARM_MODE_PRIV
     bne     $swi_kernel
@@ -393,6 +423,7 @@ $dabt_kernel:
 //
 irq_handler:
     stmfd   sp!, {r0-r3}                    // Save for scratch use
+    lock_kernel r0 r1 r2 r3
     sub     lr, lr, #4                      // lr = return address
     mrs     r3, spsr                        // r3 = spsr until save_context
     ands    r1, r3, #ARM_MODE_PRIV
@@ -432,6 +463,7 @@ $irq_kernel:
 //
 fiq_handler:
     stmfd   sp!, {r0-r3}                    // Save for scratch use
+    lock_kernel r0 r1 r2 r3
     sub     lr, lr, #4                      // lr = return address
     mrs     r3, spsr                        // r0 = spsr until save_context
     ands    r1, r3, #ARM_MODE_PRIV
@@ -498,6 +530,11 @@ do_resume:
     vldmia lr, {d16-d31}
     sub lr, #(5+32)*4
     ldmia  lr, {r13, r14}^
+
+    push {r0-r2}
+    unlock_kernel r0 r1 r2
+    pop {r0-r2}
+
     // Load the (banked SVC) LR with the return address (add the offset
     // that the last ldmia couldn't).
     ldr    lr, [lr, #8]
