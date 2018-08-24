@@ -1173,15 +1173,13 @@ handle_invoke(arch_registers_state_t *context, int argc)
 
                     // special-case context switch: ensure correct state in current DCB
                     dispatcher_handle_t handle = GROUP_PER_CORE_DCB_CURRENT->disp;
-                    struct dispatcher_shared_arm *disp =
-                        get_dispatcher_shared_arm(handle);
                     GROUP_PER_CORE_DCB_CURRENT_DISABLED = dispatcher_is_disabled_ip(handle, context->named.pc);
                     if (GROUP_PER_CORE_DCB_CURRENT_DISABLED) {
-                        assert(context == &disp->disabled_save_area);
+                        assert(context == dispatcher_get_disabled_save_area(handle));
                         context->named.r0 = r.error;
                     }
                     else {
-                        assert(context == &disp->enabled_save_area);
+                        assert(context == dispatcher_get_enabled_save_area(handle));
                         context->named.r0 = r.error;
                     }
                     dispatch(listener);
@@ -1384,7 +1382,7 @@ void sys_syscall(arch_registers_state_t* context,
     context->named.r1 = r.value;
 
     debug(SUBSYS_SYSCALL, "syscall: Resuming; dcb->disabled=%d, disp->disabled=%d\n",
-	  GROUP_PER_CORE_DCB_CURRENT_DISABLED, disp->d.disabled);
+	  GROUP_PER_CORE_DCB_CURRENT_DISABLED, dispatcher_get_disabled((dispatcher_handle_t)disp));
 
     resume(context);
 }

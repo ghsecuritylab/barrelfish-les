@@ -86,7 +86,7 @@ void handle_user_page_fault(lvaddr_t fault_address,
         // SP is set by handler routine.
 
         // Upcall user to save area
-        disp->d.disabled = true;
+        dispatcher_set_disabled((dispatcher_handle_t)disp, true);
         resume(&resume_area);
     }
 }
@@ -125,7 +125,7 @@ void handle_user_undef(lvaddr_t fault_address,
     resume_area.named.r9   = disp->got_base;
 
     // Upcall user to save area
-    disp->d.disabled = true;
+    dispatcher_set_disabled((dispatcher_handle_t)disp, true);
     resume(&resume_area);
 }
 

@@ -499,7 +499,7 @@ spawn_init_common(const char *name, int argc, const char *argv[],
         = get_dispatcher_shared_arm(init_dcb->disp);
 
     /* Initialize dispatcher */
-    disp->disabled = true;
+    dispatcher_set_disabled(init_dcb->disp, true);
     strncpy(disp->name, argv[0], DISP_NAME_LEN);
 
     /* tell init the vspace addr of its dispatcher */
@@ -559,6 +559,9 @@ spawn_bsp_init(const char *name)
     disp_arm->disabled_save_area.named.pc   = init_ep;
     disp_arm->disabled_save_area.named.cpsr = ARM_MODE_USR | CPSR_F_MASK;
     disp_arm->disabled_save_area.named.r9   = got_base;
+
+    *dispatcher_get_disabled_save_area(init_dcb->disp) = disp_arm->disabled_save_area;
+    *dispatcher_get_enabled_save_area(init_dcb->disp) = disp_arm->enabled_save_area;
 
     /* Create caps for init to use */
     create_module_caps(&spawn_state);
@@ -646,6 +649,9 @@ struct dcb *spawn_app_init(struct arm_core_data *new_core_data, const char *name
     disp_arm->disabled_save_area.named.cpsr = ARM_MODE_USR | CPSR_F_MASK;
     disp_arm->disabled_save_area.named.r9   = got_base;
     arch_set_thread_register(INIT_DISPATCHER_VBASE);
+
+    *dispatcher_get_disabled_save_area(init_dcb->disp) = disp_arm->disabled_save_area;
+    *dispatcher_get_enabled_save_area(init_dcb->disp) = disp_arm->enabled_save_area;
 
     return init_dcb;
 }

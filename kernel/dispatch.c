@@ -66,7 +66,7 @@ fpu_lazy_top(struct dcb *dcb) {
 
         // Switch FPU trap on if we switch away from FPU DCB and target is enabled
         // If target disabled, we eagerly restore the FPU
-        if(fpu_dcb != dcb && !dcb->disabled) {
+        if(fpu_dcb != dcb && !get_dcb_disabled(dcb)) {
             disp->fpu_trap = 1;
         }
 
@@ -85,7 +85,7 @@ fpu_lazy_bottom(struct dcb *dcb) {
         get_dispatcher_shared_generic(dcb->disp);
 
     // Eagerly restore FPU if it was used disabled and set FPU trap accordingly
-    if(disp->fpu_used && dcb->disabled) {
+    if(disp->fpu_used && get_dcb_disabled(dcb)) {
         // Context switch if FPU state is stale
         if(fpu_dcb != dcb) {
             // XXX: Need to reset fpu_dcb when that DCB is deleted
@@ -95,11 +95,11 @@ fpu_lazy_bottom(struct dcb *dcb) {
             fpu_trap_off();
 
             // Store old FPU state if it was used
-            if(fpu_dcb->disabled) {
+            if(get_dcb_disabled(fpu_dcb)) {
                 fpu_save(dispatcher_get_disabled_fpu_save_area(fpu_dcb->disp));
                 dst->fpu_used = 1;
             } else {
-                assert(!fpu_dcb->disabled);
+                assert(!get_dcb_disabled(fpu_dcb));
                 fpu_save(dispatcher_get_enabled_fpu_save_area(fpu_dcb->disp));
                 dst->fpu_used = 2;
             }
@@ -177,7 +177,7 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
             debug(SUBSYS_DISPATCH, "resume %.*s at 0x%" PRIx64 ", %s\n",
 		  DISP_NAME_LEN, disp->name,
 		  (uint64_t)registers_get_ip(disabled_area),
-		  disp->disabled ? "disp->disabled" : "disp->enabled"
+		  dispatcher_get_disabled(handle) ? "disp->disabled" : "disp->enabled"
 		);
         }
 
@@ -194,7 +194,7 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
         if (disp != NULL) {
             debug(SUBSYS_DISPATCH, "dispatch %.*s\n", DISP_NAME_LEN, disp->name);
             assert(disp->dispatcher_run != 0);
-            disp->disabled = true;
+            dispatcher_set_disabled(handle, true);
         }
 #if defined(__x86_64__) && !defined(__k1om__)
         if(!dcb->is_vm_guest) {

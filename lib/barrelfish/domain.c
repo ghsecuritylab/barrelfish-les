@@ -698,7 +698,7 @@ static errval_t domain_new_dispatcher_varstack(coreid_t core_id,
 
     /* Setup dispatcher */
     disp->udisp = (lvaddr_t)handle;
-    disp->disabled = true;
+    dispatcher_set_disabled_by_coreid(handle, core_id, true);
     disp->fpu_trap = 1;
     disp_gen->core_id = span_domain_state->core_id;
     // Setup the dispatcher to run remote_core_init_disabled

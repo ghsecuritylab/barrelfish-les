@@ -15,7 +15,14 @@
 #ifndef TARGET_ARM_BARRELFISH_KPI_DISPATCHER_SHARED_H
 #define TARGET_ARM_BARRELFISH_KPI_DISPATCHER_SHARED_H
 
+#include <barrelfish_kpi/cpu_arch.h>
 #include <barrelfish_kpi/dispatcher_shared.h>
+
+struct save_area {
+    union registers_arm enabled_save_area;  ///< Enabled register save area
+    union registers_arm disabled_save_area; ///< Disabled register save area
+    union registers_arm trap_save_area;     ///< Trap register save area
+} __attribute__((packed));
 
 ///< Architecture specific kernel/user shared dispatcher struct
 struct dispatcher_shared_arm {
@@ -25,6 +32,9 @@ struct dispatcher_shared_arm {
     lvaddr_t    crit_pc_high;       ///< Critical section upper PC bound
     lvaddr_t    got_base;           ///< Global Offset Table base
 
+    struct save_area areas[MAX_CORE];
+
+    // these reduce the change of code
     union registers_arm enabled_save_area;  ///< Enabled register save area
     union registers_arm disabled_save_area; ///< Disabled register save area
     union registers_arm trap_save_area;     ///< Trap register save area

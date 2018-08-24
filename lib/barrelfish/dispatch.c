@@ -90,7 +90,7 @@ void disp_run(dispatcher_handle_t handle)
     struct dispatcher_shared_generic* disp =
         get_dispatcher_shared_generic(handle);
 
-    assert_disabled(disp->disabled);
+    assert_disabled(dispatcher_get_disabled(handle));
     ++run_counter;
     disp_gen->timeslice++;
     // Never let 0 be a valid timeslice number
@@ -169,9 +169,7 @@ void disp_init_disabled(dispatcher_handle_t handle)
 {
     assert_disabled(handle != 0);
     struct dispatcher_generic* disp_gen = get_dispatcher_generic(handle);
-    struct dispatcher_shared_generic* disp =
-        get_dispatcher_shared_generic(handle);
-    assert_disabled(disp->disabled);
+    assert_disabled(dispatcher_get_disabled(handle));
 
     // Initialize entry points (and LDT on x86_64)
     disp_arch_init(handle);
@@ -197,9 +195,7 @@ void disp_init_disabled(dispatcher_handle_t handle)
  */
 void disp_yield_disabled(dispatcher_handle_t handle)
 {
-    struct dispatcher_shared_generic* disp =
-        get_dispatcher_shared_generic(handle);
-    assert_disabled(disp->disabled);
+    assert_disabled(dispatcher_get_disabled(handle));
 
 #ifdef CONFIG_DEBUG_DEADLOCKS
     disp->yieldcount++;
@@ -209,9 +205,9 @@ void disp_yield_disabled(dispatcher_handle_t handle)
     // into problems due to assumptions about segment register %fs
 //    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_THREADS_SYS_YIELD,
 //    2);
-    assert_disabled(disp->disabled);
+    assert_disabled(dispatcher_get_disabled(handle));
     sys_yield(CPTR_NULL);
-    assert_disabled(disp->disabled);
+    assert_disabled(dispatcher_get_disabled(handle));
     assert_print("dispatcher PANIC: sys_yield returned");
     for (;;);
 }
@@ -228,10 +224,8 @@ void disp_yield_disabled(dispatcher_handle_t handle)
 dispatcher_handle_t disp_disable(void)
 {
     dispatcher_handle_t handle = curdispatcher();
-    struct dispatcher_shared_generic* disp =
-        get_dispatcher_shared_generic(handle);
-    assert_disabled(disp->disabled == 0);
-    disp->disabled = 1;
+    assert_disabled(dispatcher_get_disabled(handle) == 0);
+    dispatcher_set_disabled(handle, 1);
     return handle;
 }
 
@@ -249,12 +243,10 @@ dispatcher_handle_t disp_disable(void)
 dispatcher_handle_t disp_try_disable(bool *was_enabled)
 {
     dispatcher_handle_t handle = curdispatcher();
-    struct dispatcher_shared_generic* disp =
-        get_dispatcher_shared_generic(handle);
 #ifdef __k1om__ // K1om GCC 4.7.0 does not support __atomic_* functions
     *was_enabled = __sync_bool_compare_and_swap(&disp->disabled, 0, 1);
 #else
-    *was_enabled = !__atomic_test_and_set(&disp->disabled, __ATOMIC_SEQ_CST);
+    dispatcher_try_set_disabled(handle, 1, was_enabled);
 #endif
     return handle;
 }
@@ -268,10 +260,8 @@ dispatcher_handle_t disp_try_disable(bool *was_enabled)
 void disp_enable(dispatcher_handle_t handle)
 {
     assert_disabled(handle == curdispatcher());
-    struct dispatcher_shared_generic* disp =
-        get_dispatcher_shared_generic(handle);
-    assert_disabled(disp->disabled == 1);
-    disp->disabled = 0;
+    assert_disabled(dispatcher_get_disabled(handle));
+    dispatcher_set_disabled(handle, 0);
 }
 
 /**
@@ -428,7 +418,7 @@ void disp_pagefault_disabled(dispatcher_handle_t handle, lvaddr_t fault_address,
     // NOTE: Based on which code is is causing page fault, only assert_print
     // is safe bet to print anything here.  Anything else would cause
     // page fault in itself.
-    assert_disabled(disp->disabled);
+    assert_disabled(dispatcher_get_disabled(handle));
 
 
     // FIXME: Make sure that following are using assert_print to avoid

@@ -317,8 +317,8 @@ struct dcb *spawn_module(struct spawn_state *st,
         = local_phys_to_mem(init_dispframe_cte->cap.u.frame.base);
     struct dispatcher_shared_generic *init_disp =
         get_dispatcher_shared_generic(init_handle);
-    init_disp->disabled = true;
-    init_disp->fpu_trap = 1;
+    dispatcher_set_disabled(init_handle, true);
+
     strncpy(init_disp->name, argv[0], DISP_NAME_LEN);
 
     /* Set fields in DCB */

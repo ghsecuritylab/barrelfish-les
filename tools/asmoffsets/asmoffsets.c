@@ -119,7 +119,8 @@ void dummy(void)
     DECL(CAP_L2CNODE_CNODE, struct capability, u.l2cnode.cnode);
     DECL(CAP_L1CNODE_ALLOCATED_BYTES, struct capability, u.l1cnode.allocated_bytes);
 
-    DECL(DISP_DISABLED, struct dispatcher_shared_generic, disabled);
+    DECL(DISP_DISABLED_ALL, struct dispatcher_shared_generic, disabled_all);
+    EMIT(SIZEOF_DISP_DISABLED, sizeof(((struct dispatcher_shared_generic*)(NULL))->disabled_all[0]));
     DECL(DISP_RUN, struct dispatcher_shared_generic, dispatcher_run);
     DECL(DISP_LRPC, struct dispatcher_shared_generic, dispatcher_lrpc);
     DECL(DISP_UDISP, struct dispatcher_shared_generic, udisp);
@@ -154,9 +155,11 @@ void dummy(void)
 #if defined(__arm__)
     DECL(DISP_CRIT_PC_LOW, struct dispatcher_shared_arm, crit_pc_low);
     DECL(DISP_CRIT_PC_HIGH, struct dispatcher_shared_arm, crit_pc_high);
-    DECL(DISP_ENABLED_AREA, struct dispatcher_shared_arm, enabled_save_area);
-    DECL(DISP_DISABLED_AREA, struct dispatcher_shared_arm, disabled_save_area);
-    DECL(DISP_TRAP_AREA, struct dispatcher_shared_arm, trap_save_area);
+    DECL(DISP_AREAS, struct dispatcher_shared_arm, areas);
+    DECL(SAVE_AREA_ENABLED_AREA, struct save_area, enabled_save_area);
+    DECL(SAVE_AREA_DISABLED_AREA, struct save_area, disabled_save_area);
+    DECL(SAVE_AREA_TRAP_AREA, struct save_area, trap_save_area);
+    EMIT(SIZEOF_SAVE_AREA, sizeof(struct group));
     DECL(DISP_GENERIC, struct dispatcher_arm, generic);
     DECL(BOOT_TARGET_MPID, struct armv7_boot_record, target_mpid);
     DECL(COREDATA_GOT_BASE, struct arm_core_data, got_base);

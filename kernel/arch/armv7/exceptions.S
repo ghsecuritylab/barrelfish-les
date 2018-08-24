@@ -57,6 +57,12 @@
     str \constantreg, [\gotreg, \lockreg]
 .endm
 
+.macro locate_area base tmp
+    get_core_id \tmp
+    add \base, \base, #OFFSETOF_DISP_AREAS
+    index_array \base, \tmp, #SIZEOF_SAVE_AREA
+.endm
+
 
 //
 // Macro to initialize system mode stack.
@@ -106,7 +112,12 @@
 //
 .macro disp_is_disabled disp, pc, out
     // disp->disabled || (disp->crit_pc_lo <= pc && pc < disp->crit_pc_hi)
-    ldrb    \out, [\disp, #OFFSETOF_DISP_DISABLED]
+    push {\disp}
+    add     \disp, \disp, #OFFSETOF_DISP_DISABLED_ALL
+    get_core_id \out
+    index_array  \disp, \out, #SIZEOF_DISP_DISABLED
+    ldrb    \out, [\disp]
+    pop {\disp}
     cmp     \out, #1
     bhs     0f                      // disp->disabled >= 0      | disabled
                                     // disp->disabled = false
@@ -292,8 +303,9 @@ $undef_user:
     sub     r0, lr, #4                      // r0 = faulting pc
     disp_is_disabled r2, r0, r1             // r1 = 1 if disabled, else 0
     cmp     r1, #0
-    addeq   r1, r2, #OFFSETOF_DISP_ENABLED_AREA
-    addne   r1, r2, #OFFSETOF_DISP_TRAP_AREA
+    addeq   r1, r2, #OFFSETOF_SAVE_AREA_ENABLED_AREA
+    addne   r1, r2, #OFFSETOF_SAVE_AREA_TRAP_AREA
+    locate_area r1, r3
     save_context r1, r3                     // r1 = save area
     enter_sys r3
     ldr r3, got_user_undef
@@ -337,8 +349,9 @@ $swi_user:
     get_dispatcher_shared_arm r2 r0
     disp_is_disabled r2, lr, r1             // r1 = 1 if disabled, else 0
     cmp     r1, #0
-    addeq   r0, r2, #OFFSETOF_DISP_ENABLED_AREA
-    addne   r0, r2, #OFFSETOF_DISP_DISABLED_AREA
+    addeq   r0, r2, #OFFSETOF_SAVE_AREA_ENABLED_AREA
+    addne   r0, r2, #OFFSETOF_SAVE_AREA_DISABLED_AREA
+    locate_area r0, r3
     save_context r0, r3                     // r0 = save area, r3 = scratch
     enter_sys r3
     // Removing these two instructions: they don't do anything
@@ -376,8 +389,9 @@ $pabt_user:
     mov     r0, lr                          // r0 = faulting pc
     disp_is_disabled r2, r0, r1             // r1 = 1 if disabled, else 0
     cmp     r1, #0
-    addeq   r1, r2, #OFFSETOF_DISP_ENABLED_AREA
-    addne   r1, r2, #OFFSETOF_DISP_TRAP_AREA
+    addeq   r1, r2, #OFFSETOF_SAVE_AREA_ENABLED_AREA
+    addne   r1, r2, #OFFSETOF_SAVE_AREA_TRAP_AREA
+    locate_area r1, r3
     save_context r1, r3                     // r1 = save area
     enter_sys r3
     ldr r3, got_page_fault
@@ -408,8 +422,9 @@ $dabt_user:
     mov     r0, lr                          // r0 = faulting pc
     disp_is_disabled r2, r0, r1             // r1 = disp_is_disabled
     cmp     r1, #0
-    addeq   r1, r2, #OFFSETOF_DISP_ENABLED_AREA
-    addne   r1, r2, #OFFSETOF_DISP_TRAP_AREA
+    addeq   r1, r2, #OFFSETOF_SAVE_AREA_ENABLED_AREA
+    addne   r1, r2, #OFFSETOF_SAVE_AREA_TRAP_AREA
+    locate_area r1, r3
     save_context    r1, r3                  // r1 = save_area
     mrc     p15, 0, r0, c6, c0, 0           // r0 = fault address
     enter_sys r3
@@ -442,8 +457,9 @@ $irq_user:
     mov     r1, lr                          // r1 = return address
     disp_is_disabled r2, r1, r0             // r0 = 1 if disabled, else 0
     cmp     r0, #0
-    addeq   r0, r2, #OFFSETOF_DISP_ENABLED_AREA
-    addne   r0, r2, #OFFSETOF_DISP_DISABLED_AREA
+    addeq   r0, r2, #OFFSETOF_SAVE_AREA_ENABLED_AREA
+    addne   r0, r2, #OFFSETOF_SAVE_AREA_DISABLED_AREA
+    locate_area r0, r3
     save_context    r0, r3                  // r0 = save area
     enter_sys       r3
     // Call: void handle_irq(arch_registers_state_t* save_area,
@@ -482,8 +498,9 @@ $fiq_user:
     mov     r1, lr
     disp_is_disabled r2, r1, r0             // r0 = 1 if disabled, else 0
     cmp     r0, #0
-    addeq   r0, r2, #OFFSETOF_DISP_ENABLED_AREA
-    addne   r0, r2, #OFFSETOF_DISP_DISABLED_AREA
+    addeq   r0, r2, #OFFSETOF_SAVE_AREA_ENABLED_AREA
+    addne   r0, r2, #OFFSETOF_SAVE_AREA_DISABLED_AREA
+    locate_area r0, r3
     save_context    r0, r3                  // r0 = save area
     enter_sys       r3
     mov     lr, #0

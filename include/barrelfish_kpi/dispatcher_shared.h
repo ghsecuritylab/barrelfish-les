@@ -18,6 +18,7 @@
 #ifndef __ASSEMBLER__
 
 #include <barrelfish_kpi/dispatcher_handle.h>
+#include <barrelfish_kpi/cpu_arch.h>
 
 /**
  * \brief Amount of space required for the dispatcher frame.
@@ -38,7 +39,7 @@ enum task_type {
 
 ///< Architecture generic kernel/user shared dispatcher struct
 struct dispatcher_shared_generic {
-    uint32_t   disabled;                        ///< Disabled flag (Must be able to change atomically)
+    uint32_t   disabled_all[MAX_CORE];                        ///< Disabled flag (Must be able to change atomically)
     uint32_t   haswork;                         ///< Has work (ie. is runnable) (Must be able to change atomically)
 
     lvaddr_t    udisp;                          ///< User-mode pointer to dispatcher
@@ -75,11 +76,44 @@ static inline lvaddr_t get_dispatcher_vaddr(dispatcher_handle_t handle)
     return (lvaddr_t)handle;
 }
 
+static inline uint32_t dispatcher_get_disabled_by_coreid(dispatcher_handle_t handle, coreid_t coreid)
+{
+    return ((struct dispatcher_shared_generic *)handle)->disabled_all[coreid] != 0 ? 1 : 0;
+}
+
+static inline void dispatcher_set_disabled_by_coreid(dispatcher_handle_t handle, coreid_t coreid, uint32_t disabled)
+{
+    disabled = (disabled != 0);
+    ((struct dispatcher_shared_generic *)handle)->disabled_all[coreid] = disabled;
+}
+
+static inline void dispatcher_try_set_disabled_by_coreid(dispatcher_handle_t handle, coreid_t coreid, uint32_t disabled, bool* was_enabled)
+{
+    struct dispatcher_shared_generic *disp_gen = get_dispatcher_shared_generic(handle);
+    *was_enabled = !__atomic_test_and_set(disp_gen->disabled_all + coreid, __ATOMIC_SEQ_CST);
+}
+
+static inline uint32_t dispatcher_get_disabled(dispatcher_handle_t handle) 
+{
+    return dispatcher_get_disabled_by_coreid(handle, get_core_id());
+}
+
+static inline void dispatcher_set_disabled(dispatcher_handle_t handle, uint32_t disabled)
+{
+    return dispatcher_set_disabled_by_coreid(handle, get_core_id(), disabled);
+}
+
+static inline void dispatcher_try_set_disabled(dispatcher_handle_t handle, uint32_t disabled, bool* was_enabled)
+{
+    return dispatcher_try_set_disabled_by_coreid(handle, get_core_id(), disabled, was_enabled);
+}
+
 #include <stdio.h>
 static inline void dump_dispatcher(struct dispatcher_shared_generic *disp)
 {
+    uint32_t disabled = dispatcher_get_disabled((dispatcher_handle_t)disp);
     printf("Dump of dispatcher at address %p:\n", disp);
-    printf("  disabled      = %d (%s)\n", disp->disabled, disp->disabled ? "RESUME" : "UPCALL" );
+    printf("  disabled      = %d (%s)\n", disabled, disabled ? "RESUME" : "UPCALL" );
     printf("  haswork       = %d\n", disp->haswork );
     printf("  udisp         = 0x%"PRIxLVADDR"\n", disp->udisp );
     printf("  lmp_delivered = %d\n", disp->lmp_delivered );

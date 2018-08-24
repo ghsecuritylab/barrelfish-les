@@ -18,4 +18,16 @@
 /// This CPU supports lazy FPU context switching?
 #undef FPU_LAZY_CONTEXT_SWITCH
 
+#include <barrelfish_kpi/types.h>
+
+#define MAX_CORE 16
+
+static inline coreid_t get_core_id(void)
+{
+    uint32_t ret = 0;
+    __asm("mrc p15, 0, %[ret], c13, c0, 3" : [ret] "=r" (ret));
+    ret &= 0xfff;
+    return (coreid_t)ret;
+}
+
 #endif
