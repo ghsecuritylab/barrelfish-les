@@ -51,16 +51,16 @@ coreid_t get_real_cpu_id(void)
     return cp15_get_cpu_id();
 }
 
-struct group* get_cur_group_by_coreid(coreid_t coreid)
-{
-    return global_group_mgmt->cur_group[coreid];
-}
-
-struct group* set_cur_group_by_coreid(coreid_t coreid, struct group* g)
+static struct group* set_cur_group_by_coreid(coreid_t coreid, struct group* g)
 {
     // here should be more state maintain
     // 比如说当前group都包含了哪些core
     return global_group_mgmt->cur_group[coreid] = g;
+}
+
+struct group* get_cur_group_by_coreid(coreid_t coreid)
+{
+    return global_group_mgmt->cur_group[coreid];
 }
 
 struct group* get_cur_group(void)
@@ -71,6 +71,13 @@ struct group* get_cur_group(void)
         global_group_mgmt->lazy_load_target_group[id] = NULL;
     }
     return get_cur_group_by_coreid(id);
+}
+
+void set_cur_group_lazy(struct group* g)
+{
+    global_group_mgmt->lazy_load_target_group[get_real_cpu_id()] = g;
+    // XXX this should be moved to arch specified code
+    set_got_base_lazy(g->got_base);
 }
 
 static void group_init_common(void)

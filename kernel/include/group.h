@@ -40,8 +40,8 @@ void group_app_init(void);
 struct group* get_group(coreid_t coreid);
 
 struct group* get_cur_group_by_coreid(coreid_t coreid);
-struct group* set_cur_group_by_coreid(coreid_t coreid, struct group* g);
 struct group* get_cur_group(void);
+void set_cur_group_lazy(struct group* g);
 
 coreid_t get_real_cpu_id(void);
 

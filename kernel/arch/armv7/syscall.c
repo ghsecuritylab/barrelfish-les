@@ -822,6 +822,14 @@ INVOCATION_HANDLER(monitor_identify_domains_cap)
     return sys_monitor_identify_cap(root, cptr, level, retbuf);
 }
 
+INVOCATION_HANDLER(monitor_attach_group)
+{
+    INVOCATION_PRELUDE(3);
+    groupid_t target_group = sa->arg2;
+    set_cur_group_lazy(get_group(target_group));
+    return SYSRET(SYS_ERR_OK);
+}
+
 static struct sysret handle_irq_table_set( struct capability* to,
         arch_registers_state_t* context,
         int argc
@@ -1065,6 +1073,7 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Spawn_core]        = monitor_spawn_core,
         [KernelCmd_Unlock_cap]        = monitor_unlock_cap,
         [KernelCmd_Get_platform]      = monitor_get_platform,
+        [KernelCmd_Attach_group]      = monitor_attach_group,
     },
     [ObjType_IPI] = {
         [IPICmd_Send_Start]  = monitor_spawn_core,
