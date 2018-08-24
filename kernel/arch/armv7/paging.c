@@ -126,8 +126,8 @@ void paging_context_switch(lpaddr_t ttbr)
         /* With no ASIDs, we've got to flush everything. */
         invalidate_tlb();
         /* Clean and invalidate. */
-        invalidate_data_caches_pouu(true);
-        invalidate_instruction_cache();
+        //invalidate_data_caches_pouu(true);
+        //invalidate_instruction_cache();
         /* Make sure the invalidates are completed and visible before any
          * user-level code can execute. */
         dsb(); isb();
@@ -400,7 +400,7 @@ caps_map_l1(struct capability* dest,
             entry++;
 
             /* Clean the modified entry to L2 cache. */
-            clean_to_pou(entry);
+            clean_to_poc(entry);
 
             debug(SUBSYS_PAGING, "L2 mapping %08"PRIxLVADDR"[%"PRIuCSLOT
                                  "] @%p = %08"PRIx32"\n",
@@ -466,7 +466,7 @@ caps_map_l1(struct capability* dest,
             (src_lpaddr + i * ARM_L2_TABLE_BYTES) >> 10;
 
         /* Clean the modified entry to L2 cache. */
-        clean_to_pou(entry);
+        clean_to_poc(entry);
 
         debug(SUBSYS_PAGING, "L1 mapping %"PRIuCSLOT". @%p = %08"PRIx32"\n",
               slot + i, entry, entry->raw);
@@ -534,7 +534,7 @@ caps_map_l2(struct capability* dest,
         entry->small_page.base_address = (src_lpaddr + i * BASE_PAGE_SIZE) >> 12;
 
         /* Clean the modified entry to L2 cache. */
-        clean_to_pou(entry);
+        clean_to_poc(entry);
 
         debug(SUBSYS_PAGING, "L2 mapping %08"PRIxLVADDR"[%"PRIuCSLOT"] @%p = %08"PRIx32"\n",
                dest_lvaddr, slot, entry, entry->raw);
@@ -629,7 +629,7 @@ errval_t paging_modify_flags(struct capability *mapping, uintptr_t offset,
         paging_set_flags(entry, kpi_paging_flags);
 
         /* Clean the modified entry to L2 cache. */
-        clean_to_pou(entry);
+        clean_to_poc(entry);
     }
 
     return paging_tlb_flush_range(cte_for_cap(mapping), offset, pages);
@@ -701,7 +701,7 @@ void paging_map_user_pages_l1(lvaddr_t table_base, lvaddr_t va, lpaddr_t pa)
     l1_table[ARM_L1_OFFSET(va)] = e;
 
     /* Clean the modified entry to L2 cache. */
-    clean_to_pou(&l1_table[ARM_L1_OFFSET(va)]);
+    clean_to_poc(&l1_table[ARM_L1_OFFSET(va)]);
 }
 
 /**
@@ -724,5 +724,5 @@ void paging_set_l2_entry(uintptr_t* l2e, lpaddr_t addr, uintptr_t flags)
     *l2e = e.raw;
 
     /* Clean the modified entry to L2 cache. */
-    clean_to_pou(l2e);
+    clean_to_poc(l2e);
 }

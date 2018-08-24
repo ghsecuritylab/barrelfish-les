@@ -31,6 +31,16 @@
                       addLibraries = [ "driverkit", "term_server" ],
                       architectures = [ "armv7" ]
                     },
+  build application { target = "serial_jetsontk1",
+                      cFiles = [ "serial_jetsontk1.c", "main.c",
+                                 "basic_service.c", "terminal_service.c" ],
+                      flounderBindings = [ "serial" ],
+                      flounderDefs = [ "terminal" , "terminal_config",
+                                       "terminal_session" ],
+                      mackerelDevices = [ "jetsontk1/jetson_uart" ],
+                      addLibraries = [ "driverkit", "term_server" ],
+                      architectures = [ "armv7" ]
+                    },
   build application { target = "serial_pl011",
                       cFiles = [ "serial_pl011.c", "main.c",
                                  "basic_service.c", "terminal_service.c" ],

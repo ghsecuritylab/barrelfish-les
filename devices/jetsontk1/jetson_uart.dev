@@ -1,0 +1,152 @@
+device jetson_uart msbfirst (addr base) "Jetson TK1 UART"{
+	
+    register THR wo addr (base, 0x0) "Transmit holding" {
+        _       24;
+        thr     8 wo       "Transmit holding register";
+    };
+
+    register RBR ro also addr (base, 0x0) "Receive Buffer" {
+        _       24;
+        rbr     8 ro       "Receive Buffer register";
+    };
+
+    register DLL rw also addr (base, 0x0) "Divisor latch low" {
+        _         24;
+        clock_lsb 8 rw     "Divisor latch low";
+    };
+
+    register IER rw addr (base, 0x4) "Interrupt enable" {
+        _          26;
+        eord_it    1    "Interrupt Enable for End of Received Data";
+        rx_timeout_it 1    "Interrupt Enable for Rx FIFO timeout";
+        modem_sts_it 1  "Interrupt Enable for Modem Status Interrupt";
+        line_sts_it 1   "Interrupt Enable for Receiver Line Status Interrupt";
+        thr_it     1    "Interrupt Enable for Transmitter Holding Register Empty interrupt";
+        rhr_it     1    "Interrupt Enable for Received Data Interrupt";
+    };
+
+    register DLM rw also addr (base, 0x4) "Divisor latch high" {
+        _          24;
+        clock_msb  8  rw   "Divisor latch high";
+    };
+
+    constants it_type "Interrupt type" {
+        it_err      = 0x3       "Overrun Error, Parity Error, Framing Error, Break";
+        it_rda      = 0x2       "Receiver Data Available";
+        it_rxto 	= 0x6       "rx_timeout_intr";
+        it_eordto 	= 0x4       "eord_timeout_intr";
+        it_thre     = 0x1       "Transmitter Holding Register empty";
+        it_modem    = 0x0      	"modem_status interrupt";
+    };
+
+    register IIR ro addr (base, 0x8) "Interrupt identification" {
+        _          24;
+        fifo_ms	   2    "FIFO Mode Status 00: no fifo 01: fifo not use 11 : use fifo";
+        _		   2;
+        it_type    3 	type(it_type)  "Interrupt type";
+        it_pending 1    "No interrupt pending";
+    };
+
+    register FCR wo also addr (base, 0x8) "FIFO control" {
+        _             24;
+        rx_fifo_trig  2 "RX FIFO trigger level";
+        tx_fifo_trig  2 "TX FIFO trigger level";
+        dma_mode      1 "Enable DMA mode";
+        tx_fifo_clear 1 "Clear TX FIFO";
+        rx_fifo_clear 1 "Clear RX FIFO";
+        fifo_en       1 "Enable TX/RX FIFOs";
+    };
+
+    constants char_length "RX/TX char length" {
+        wl_5bits       = 0    "5 bits";
+        wl_6bits       = 1    "6 bits";
+        wl_7bits       = 2    "7 bits";
+        wl_8bits       = 3    "8 bits";
+    };
+
+    register LCR rw addr (base, 0xc) "Line control" {
+        _               24;
+        dlab            1       "Divisor latch access enable";
+        sb              1       "Break control enable";
+        sp              1       "Set (force) parity to value";
+        parity_type1    1       "Even parity format";
+        parity_en       1       "Parity enable";
+        nb_stop         1       "Number of stop bits";
+        char_length     2 type(char_length)     "TX/RX char length";
+    };
+
+    register MCR rw addr (base, 0x10) "Modem control" {
+        _            25;
+        rts_en       1  "Enable RTS Hardware Flow Control";
+        cts_en       1  "Enable CTS Hardware Flow Control";
+        loopback_en  1  "Enable local loopback mode";
+        out2    	 1  "IOUT2: nOUT2 (Not Used)";
+        out1	     1  "OUT1: nOUT1 (Not Used)";
+        rts          1  "Force RTS output active (low)";
+        dtr          1  "Force DTR output active (low)";
+    };
+
+    register LSR ro addr (base, 0x14) "Line status" {
+        _               23;
+        tx_fifo_full	1		"Transmitter FIFO full status";
+        rx_fifo_sts     1       "RX FIFO error";
+        tsr_e           1       "Transmit Shift Register empty status";
+        thr_e	        1       "THR empty";
+        rx_bi           1       "break detected";
+        rx_fe           1       "framing error";
+        rx_pe           1       "parity error";
+        rx_oe           1       "Receiver Overrun Error";
+        rx_data_r       1       "Receiver Data Ready";
+    };
+
+    register MSR rw addr (base, 0x18) "Modem status" {
+        _         24;
+        ncd_sts   1     "Complement of DCD input";
+        nri_sts   1     "Complement of RI input";
+        ndsr_sts  1     "Complement of DSR input";
+        ncts_sts  1     "Complement of CTS input";
+        dcd_sts   1     "DCD input changed. Cleared on read.";
+        ri_sts    1     "RI input changed. Cleared on read.";
+        dsr_sts   1     "DSR input changed. Cleared on read.";
+        cts_sts   1     "CTS input changed. Cleared on read.";
+    };
+
+    register SPR rw addr (base, 0x1c) "Scratchpad" {
+        _                 24;
+        spr_word          8     "Scratchpad";
+    };
+
+    register CSR rw addr (base, 0x20) "UART IrDA Pulse Coding CSR Register" {
+        _                  24;
+        sir_a 			   1    "1 = Enable SIR coder, 0 = Disable SIR coder";
+        pwt_a	           1    "0=3/16th Baud Pulse, 1=4/16";
+        _				   2;
+        invert_rts         1    "Inverts the normally inactive high nRTS pin";
+        invert_cts         1    "Inverts the normally inactive high nCTS pin";
+        invert_txd         1    "Inverts the normally inactive high TXD pin";
+        invert_rxd         1 	"Inverts the normally inactive high RXD pin";
+    };
+
+    register RXFIFOCFG rw addr (base, 0x24) "UART_RX_FIFO_CFG_0" {
+        _              24;
+        rx_fifo_trig_en 1   "Enable use of RX_FIFO_TRIG count (obsoletes RX_TRIG when enabled)";
+        _              1;
+        rx_fifo_trig   6    "Set RX_FIFO trigger level (any value 1 thru 32)";
+    };
+
+    register MIE rw addr(base, 0x28) "UART Modem Interrupt Enable Register" {
+        _               28;
+        dcd_int_en		1		"Interrupt Enable for Change (Delta) in CD state detected";
+        dri_int_en		1		"Interrupt Enable for Change (Delta) in RI state detected";
+        ddsr_int_en		1		"Interrupt Enable for Change (Delta) in DSR state detected";
+        dcts_int_en		1		"Interrupt Enable for Change (Delta) in CTS state detected";
+    };
+
+    register ASR rw addr(base, 0x3C) "Auxiliary control" {
+    	valid			1		"";
+    	busy			1		"";
+    	_				14;
+        rx_rate_sense_h 8		"Shows bits [15:8] of the count of clock edges between two successive clock edges";
+        rx_rate_sense_l 8		"Shows bits [7:0] of the count of clock edges between two successive clock edges";
+    };
+};

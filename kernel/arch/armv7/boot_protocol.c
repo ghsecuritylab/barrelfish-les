@@ -60,9 +60,7 @@ errval_t platform_boot_aps(hwid_t target, genpaddr_t gen_entry, genpaddr_t conte
     /* The boot driver will read this value with its MMU and caches disabled,
      * so we need to make sure it's visible. */
     dmb(); isb();
-    clean_invalidate_to_poc(&br->core_data);
-    clean_invalidate_to_poc(&br->done);
-    clean_invalidate_to_poc(&br->target_mpid);
+    invalidate_data_caches_pouu(true);
 
     /* We need to ensure that the clean has finished before we wake them. */
     dmb(); isb();
