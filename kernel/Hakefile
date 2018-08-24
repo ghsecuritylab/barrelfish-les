@@ -48,6 +48,7 @@ let
                "wakeup.c",
                "useraccess.c",
                "coreboot.c",
+               "group.c",
                "systime.c" ]
              ++ (if Config.microbenchmarks then ["microbenchmarks.c"] else [])
              ++ (if Config.oneshot_timer then ["timer.c"] else [])

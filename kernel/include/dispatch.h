@@ -19,6 +19,7 @@
 #include <barrelfish_kpi/dispatcher_shared_arch.h>
 #include <capabilities.h>
 #include <misc.h>
+#include <group.h>
 
 extern uint64_t context_switch_counter;
 
@@ -38,7 +39,6 @@ struct guest {
  */
 struct dcb {
     dispatcher_handle_t disp;           ///< User-mode dispatcher frame pointer
-    bool                disabled;       ///< Was dispatcher disabled when last saved?
     struct cte          cspace;         ///< Cap slot for CSpace
     lpaddr_t            vspace;         ///< Address of VSpace root
     struct cte          disp_cte;
@@ -53,6 +53,9 @@ struct dcb {
     struct dcb          *next;          ///< Next DCB in schedule
     struct dcb          *prev;          ///< Previous DCB in schedule
                                         /// (only valid iff CONFIG_SCHEDULER_RR)
+
+    // bool                disabled;       ///< Was dispatcher disabled when last saved?
+    struct dcb_per_core_state per_core_state; /// Group per core state for dcb
 #if defined(CONFIG_SCHEDULER_RBED)
     systime_t          release_time, etime, last_dispatch;
     systime_t          wcet, period, deadline;
@@ -76,7 +79,7 @@ void fpu_lazy_bottom(struct dcb *dcb);
 void context_switch(struct dcb *dcb);
 
 /// The currently running dispatcher and FPU dispatcher
-extern struct dcb *dcb_current, *fpu_dcb;
+extern struct dcb *fpu_dcb;
 
 void dispatch(struct dcb *dcb) __attribute__ ((noreturn));
 errval_t lmp_can_deliver_payload(struct capability *ep,

@@ -91,7 +91,7 @@ void dummy(void)
     /* preamble */
     __asm("\n#ifndef ASMOFFSETS_H\n#define ASMOFFSETS_H\n");
     DECL(DCB_DISP, struct dcb, disp);
-    DECL(DCB_DISABLED, struct dcb, disabled);
+    // DECL(DCB_DISABLED, struct dcb, disabled);
     // XXX: Assumes cap is first member of struct cte
     DECL(DCB_CSPACE_CAP, struct dcb, cspace.cap);
     DECL(DCB_VSPACE, struct dcb, vspace);

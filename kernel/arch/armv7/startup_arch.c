@@ -31,6 +31,7 @@
 #include <kcb.h>
 #include <gic.h>
 #include <arch/arm/startup_arm.h>
+#include <group.h>
 
 #define CNODE(cte)              get_address(&cte->cap)
 
@@ -665,6 +666,8 @@ void arm_kernel_startup(void)
         /* Initialize the location to allocate phys memory from */
         bsp_init_alloc_addr = mem_to_local_phys(max_addr);
 
+        group_bsp_init();
+
         /* Initial KCB was allocated by the boot driver. */
         assert(kcb_current);
 
@@ -679,6 +682,8 @@ void arm_kernel_startup(void)
         /* Initialize the allocator with the information passed to us */
         app_alloc_phys_start = core_data->memory_base_start;
         app_alloc_phys_end   = app_alloc_phys_start + core_data->memory_bytes;
+
+        group_app_init();
 
         init_dcb = spawn_app_init(core_data, APP_INIT_MODULE_NAME);
 
