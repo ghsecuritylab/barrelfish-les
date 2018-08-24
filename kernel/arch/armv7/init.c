@@ -284,6 +284,13 @@ arch_init(struct arm_core_data *boot_core_data,
     // full access to cp10 and cp11
     __asm volatile ("ldr r0, =(0xf << 20)\n"
                     "mcr p15, 0, r0, c1, c0, 2\n");
+
+    // non-secure state full access to cp10 and cp11
+    uint32_t nsacr;
+    __asm volatile ("mrc p15, 0, %[nsacr], c1, c1, 2\n" : [nsacr] "=r" (nsacr));
+    nsacr = nsacr | 0xc00;
+    __asm volatile ("mcr p15, 0, %0, c1, c1, 2\n" :: "r" (nsacr));
+
     // enable floating-point extensions
     __asm volatile ("mov r3, #0x40000000\n"
                     "vmsr fpexc, r3\n");

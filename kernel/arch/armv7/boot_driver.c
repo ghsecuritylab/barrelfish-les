@@ -61,100 +61,100 @@ check_cpuid(void) {
     uint32_t midr= cp15_read_midr();
 
     /* XXX - Mackerel should give nice strings to print. */
-    MSG("This is an ");
+    //MSG("This is an ");
 
     if(cpuid_arm_midr_architecture_extract((uint8_t *)&midr) != 0xf) {
-        printf("unsupported ARMv6 or earlier core\n");
+        //printf("unsupported ARMv6 or earlier core\n");
         return false;
     }
 
     switch(cpuid_arm_midr_implementer_extract((uint8_t *)&midr)) {
         case cpuid_arm_impl_arm:
-            printf("ARM ");
+            //printf("ARM ");
             switch(cpuid_arm_midr_part_extract((uint8_t *)&midr)) {
                 case cpuid_arm_part_a5:
-                    printf("Cortex-A5 ");
+                    //printf("Cortex-A5 ");
                     break;
                 case cpuid_arm_part_a7:
-                    printf("Cortex-A7 ");
+                    //printf("Cortex-A7 ");
                     break;
                 case cpuid_arm_part_a8:
-                    printf("Cortex-A8 ");
+                    //printf("Cortex-A8 ");
                     break;
                 case cpuid_arm_part_a9:
-                    printf("Cortex-A9 ");
+                    //printf("Cortex-A9 ");
                     break;
                 case cpuid_arm_part_a15:
-                    printf("Cortex-A15 ");
+                    //printf("Cortex-A15 ");
                     break;
                 case cpuid_arm_part_a17:
-                    printf("Cortex-A17 ");
+                    //printf("Cortex-A17 ");
                     break;
                 case cpuid_arm_part_a53:
-                    printf("Cortex-A53 ");
+                    //printf("Cortex-A53 ");
                     break;
                 case cpuid_arm_part_a57:
-                    printf("Cortex-A57 ");
+                    //printf("Cortex-A57 ");
                     break;
                 case cpuid_arm_part_a72:
-                    printf("Cortex-A72 ");
+                    //printf("Cortex-A72 ");
                     break;
                 case cpuid_arm_part_a73:
-                    printf("Cortex-A73 ");
+                    //printf("Cortex-A73 ");
                     break;
             }
-            printf("r%dp%d\n",
-                   cpuid_arm_midr_variant_extract((uint8_t *)&midr),
-                   cpuid_arm_midr_revision_extract((uint8_t *)&midr));
+            //printf("r%dp%d\n",
+            //       cpuid_arm_midr_variant_extract((uint8_t *)&midr),
+            //       cpuid_arm_midr_revision_extract((uint8_t *)&midr));
             break;
 
         case cpuid_arm_impl_dec:
-            printf("Unknown DEC core\n");
+            //printf("Unknown DEC core\n");
             break;
         case cpuid_arm_impl_motorola:
-            printf("Unknown Motorola core\n");
+            //printf("Unknown Motorola core\n");
             break;
         case cpuid_arm_impl_qualcomm:
-            printf("Unknown Qualcomm core\n");
+            //printf("Unknown Qualcomm core\n");
             break;
         case cpuid_arm_impl_marvell:
-            printf("Unknown Marvell core\n");
+            //printf("Unknown Marvell core\n");
             break;
         case cpuid_arm_impl_intel:
-            printf("Unknown Intel core\n");
+            //printf("Unknown Intel core\n");
             break;
 
         default:
-            printf("Unknown manufacturer's core\n");
+            //printf("Unknown manufacturer's core\n");
             break;
     }
 
     uint32_t id_pfr1= cp15_read_id_pfr1();
     if(cpuid_arm_id_pfr1_security_extract((uint8_t *)&id_pfr1) ==
        cpuid_arm_sec_ni) {
-        MSG("  Security extensions required but not implemented\n");
+        //MSG("  Security extensions required but not implemented\n");
         return false;
     }
     else {
-        MSG("  Security extensions implemented\n");
+        //MSG("  Security extensions implemented\n");
     }
 
-    MSG("  Virtualisation extensions ");
+    //MSG("  Virtualisation extensions ");
     if(cpuid_arm_id_pfr1_virtualisation_extract((uint8_t *)&id_pfr1) ==
        cpuid_arm_ftr_i) {
-        printf("implemented.\n");
+        //printf("implemented.\n");
     }
     else {
-        printf("not implemented.\n");
+        //printf("not implemented.\n");
     }
 
-    MSG("  Generic timer ");
+    //MSG("  Generic timer ");
     if(cpuid_arm_id_pfr1_generic_timer_extract((uint8_t *)&id_pfr1) ==
        cpuid_arm_ftr_i) {
-        printf("implemented.\n");
+        //printf("implemented.\n");
     }
     else {
-        printf("not implemented.\n");
+        //printf("not implemented.\n");
     }
 
     return true;
@@ -192,20 +192,20 @@ __attribute__((noreturn))
 void boot_app_core(struct armv7_boot_record *bootrec) {
     my_core_id = cp15_get_cpu_id();
 
-    MSG("APP core %"PRIu32" booting.\n", bootrec->target_mpid);
+    //MSG("APP core %"PRIu32" booting.\n", bootrec->target_mpid);
 
     /* Get the core_data structure from the boot record. */
     struct arm_core_data *app_core_data=
         (struct arm_core_data *)mem_to_local_phys(bootrec->core_data);
 
-    MSG("CPU driver entry point is KV:%08"PRIx32"\n",
-            app_core_data->entry_point);
+    //MSG("CPU driver entry point is KV:%08"PRIx32"\n",
+    //        app_core_data->entry_point);
 
-    MSG("Page tables at P:%08"PRIx32" and P:%08"PRIx32".\n",
-            app_core_data->kernel_l1_low,
-            app_core_data->kernel_l1_high);
+    //MSG("Page tables at P:%08"PRIx32" and P:%08"PRIx32".\n",
+    //        app_core_data->kernel_l1_low,
+    //        app_core_data->kernel_l1_high);
 
-    MSG("Switching page tables and jumping - see you in arch_init().\n");
+    //MSG("Switching page tables and jumping - see you in arch_init().\n");
     switch_and_jump((void *)app_core_data->entry_point,
                     bootrec->core_data,
                     app_core_data->kernel_l1_low,
@@ -226,7 +226,6 @@ void boot_bsp_core(void *pointer, void *cpu_driver_entry,
 
     /* Place all AP cores in the WFE loop. */
     plat_advance_aps();
-
     /* If this pointer has been modified by the loader, it means we're got a
      * statically-allocated multiboot info structure, as we're executing from
      * ROM, in a simulator, or otherwise unable to use a full bootloader. */
@@ -262,16 +261,16 @@ void boot_bsp_core(void *pointer, void *cpu_driver_entry,
      * to explicitly initialize them here... */
     spinlock_init(&global->locks.print);
 
-    MSG("Boot driver invoked as: %s\n", cmdline);
+    //MSG("Boot driver invoked as: %s\n", cmdline);
 
     /* These, likewise, use physical addresses directly. */
     check_cpuid();
     //platform_print_id();
 
     /* Print kernel address for debugging with gdb. */
-    MSG("First byte of boot driver at 0x%"PRIxLVADDR"\n",
-            local_phys_to_mem((uint32_t)&boot_start));
-    MSG("First byte of CPU driver at %p\n", cpu_driver_base);
+    //MSG("First byte of boot driver at 0x%"PRIxLVADDR"\n",
+    //        local_phys_to_mem((uint32_t)&boot_start));
+    //MSG("First byte of CPU driver at %p\n", cpu_driver_base);
 
     /* Get the memory map. */
     if(!(mbi->flags & MULTIBOOT_INFO_FLAG_HAS_MMAP))
@@ -307,7 +306,7 @@ void boot_bsp_core(void *pointer, void *cpu_driver_entry,
               "breaks.  This is really dumb, and must be fixed.\n");
     }
 
-    MSG("CPU driver entry point is %p\n", cpu_driver_entry);
+    //MSG("CPU driver entry point is %p\n", cpu_driver_entry);
 
     /* Fill in the boot data structure for the CPU driver. */
     /* We need to pass in anything we've allocated. */
@@ -325,13 +324,13 @@ void boot_bsp_core(void *pointer, void *cpu_driver_entry,
 
     /* Relocate the boot data pointer for the CPU driver. */
     lvaddr_t boot_pointer= local_phys_to_mem((lpaddr_t)&boot_core_data);
-    MSG("Boot data structure at kernel VA %08x\n", boot_pointer);
+    //MSG("Boot data structure at kernel VA %08x\n", boot_pointer);
 
     /* Create the kernel page tables. */
-    MSG("Initialising kernel page tables.\n");
+    //MSG("Initialising kernel page tables.\n");
     paging_init(ram_base, ram_size, &boot_core_data);
 
-    MSG("Switching page tables and jumping - see you in arch_init().\n");
+    //MSG("Switching page tables and jumping - see you in arch_init().\n");
     switch_and_jump(cpu_driver_entry, boot_pointer, (lpaddr_t)l1_low,
                     (lpaddr_t)l1_high, 0);
 }

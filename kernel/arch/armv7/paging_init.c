@@ -114,8 +114,8 @@ void paging_init(lpaddr_t ram_base, size_t ram_size,
     assert(ROUND_UP((lpaddr_t)l1_low, ARM_L1_ALIGN) == (lpaddr_t)l1_low);
     assert(ROUND_UP((lpaddr_t)l1_high, ARM_L1_ALIGN) == (lpaddr_t)l1_high);
 
-    MSG("Initialising kernel paging, using RAM at %08x-%08x\n",
-        ram_base, ram_base + (ram_size - 1));
+    //MSG("Initialising kernel paging, using RAM at %08x-%08x\n",
+    //    ram_base, ram_base + (ram_size - 1));
 
     /**
      * On many ARMv7-A platforms, physical RAM (phys_memory_start) is the same
@@ -199,6 +199,7 @@ void enable_mmu(lpaddr_t ttbr0, lpaddr_t ttbr1)
      * set TTBCR.N = 1 to use TTBR1 for VAs >= MEMORY_OFFSET (=2GB)
      */
     uint32_t sctlr= cp15_read_sctlr();
+#if 0
     MSG(" MMU is currently ");
     if(sctlr & BIT(2)) {
                        printf("enabled.\n");
@@ -214,6 +215,7 @@ void enable_mmu(lpaddr_t ttbr0, lpaddr_t ttbr1)
                        panic("Caches are enabled.\n");
     }
     else               printf("disabled.\n");
+#endif
 
     /* Force all outstanding operations to complete. */
     dsb(); isb();
