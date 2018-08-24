@@ -19,6 +19,21 @@
 
 /*** Macros used in later routines. ***/
 
+.macro get_core_id out
+    mrc p15, 0, \out, c0, c0, 5
+    and \out, \out, #0xF
+.endm
+
+.macro index_array base index elem_size
+0:
+    cmp \index, #0
+    beq 1f
+    sub \index, \index, #1
+    add \base, \base, \elem_size
+    b 0b
+1:
+.endm
+
 //
 // Macro to initialize system mode stack.
 // Assumes that the GOT pointer is set.
@@ -29,15 +44,24 @@
     add sp, sp, #KERNEL_STACK_SIZE
 .endm
 
+
 // Macro definition to get pointer to arch-specific dispatcher
 //
 // Logical equivalent of C function with same name
 //
 .macro get_dispatcher_shared_arm out tmp
-    load_got \tmp
-    ldr      \out, dcb_current_idx
-    ldr      \out, [\tmp, \out]
-    ldr      \out, [\out]        // out = dcb_current
+    ldr      \out, global_group_mgmt
+
+    add      \out, \out, #OFFSETOF_GROUP_MGMT_CURGROUP
+    get_core_id \tmp
+    index_array \out, \tmp, #SIZEOF_GROUP_PTR // addr of cur group ptr
+    ldr      \out, [\out] // load cur group ptr
+    add      \out, \out, #OFFSETOF_GROUP_PER_CORE_STATE
+
+    get_core_id \tmp
+    index_array \out, \tmp, #SIZEOF_GROUP_PER_CORE_STATE
+    ldr      \out, [\out, #OFFSETOF_GROUP_PER_CORE_STATE_DCB_CURRENT]
+
     ldr      \out, [\out, #OFFSETOF_DCB_DISP] //now ptr to dispatcher_shared_arm
 .endm
 
@@ -165,12 +189,6 @@ exception_vectors:
 cpu_stack_got_offset:
     .word kernel_stack(GOT)
 
-
-/* The GOT offset of dcb_current. */
-    .type dcb_current_idx, STT_OBJECT
-dcb_current_idx:
-    .word dcb_current(GOT)
-
 /* The vector table above uses short jumps to reach these, so they must also
  * fit inside the 4kB high vectors page at 0xfffff000. */
 
@@ -212,6 +230,10 @@ got_handle_fiq:
     .type got_kernel_fiq, STT_OBJECT
 got_kernel_fiq:
     .word handle_fiq_kernel(GOT)
+
+.global global_group_mgmt
+global_group_mgmt:
+    .word 0,0
 
 //
 // void undef_handler(void)

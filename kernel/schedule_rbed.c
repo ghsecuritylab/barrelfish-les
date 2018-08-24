@@ -374,10 +374,10 @@ struct dcb *schedule(void)
 
         // If nothing changed, run whatever ran last (task might have
         // yielded to another), unless it is blocked
-        if(lastdisp == todisp && dcb_current != NULL && in_queue(dcb_current)) {
+        if(lastdisp == todisp && GROUP_PER_CORE_DCB_CURRENT != NULL && in_queue(GROUP_PER_CORE_DCB_CURRENT)) {
             /* trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_SCHED_CURRENT, */
-            /*             (uint32_t)(lvaddr_t)dcb_current & 0xFFFFFFFF); */
-            return dcb_current;
+            /*             (uint32_t)(lvaddr_t)GROUP_PER_CORE_DCB_CURRENT & 0xFFFFFFFF); */
+            return GROUP_PER_CORE_DCB_CURRENT;
         }
 
         /* trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_SCHED_SCHEDULE, */

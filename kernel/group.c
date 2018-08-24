@@ -5,7 +5,7 @@
 #include <cp15.h>
 volatile int kernel_lock;
 
-struct group_mgmt* global_group_mgmt __attribute__((section(".text")));
+// struct group_mgmt* global_group_mgmt __attribute__((section(".text")));
 
 static void group_init_globals(void)
 {
@@ -18,6 +18,7 @@ static void group_init_globals(void)
 
     kernel_lock = 0;
     global_group_mgmt = (struct group_mgmt*)bsp_alloc_phys(sizeof(struct group_mgmt));
+    printf("MGMT: %lx\n", global_group_mgmt);
 }
 
 static lvaddr_t get_got_base(void)
@@ -60,6 +61,11 @@ struct group* set_cur_group_by_coreid(coreid_t coreid, struct group* g)
     return global_group_mgmt->cur_group[coreid] = g;
 }
 
+struct group* get_cur_group(void)
+{
+    return get_cur_group_by_coreid(get_real_cpu_id());
+}
+
 static void group_init_common(void)
 {
     coreid_t coreid = get_real_cpu_id();
@@ -68,6 +74,8 @@ static void group_init_common(void)
     cur->got_base = set_got_base_lazy(get_got_base());
     cur->group_id = coreid;
     cur->per_core_state[coreid].enabled = true;
+
+    printf("MGMT: %lx\n", global_group_mgmt);
 }
 
 void group_bsp_init(void)

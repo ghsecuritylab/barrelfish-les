@@ -52,9 +52,6 @@ unsigned int config_timeslice = CONFIG_TIMESLICE;
 /// Counter for number of context switches
 uint64_t context_switch_counter = 0;
 
-/// Current execution dispatcher (when in system call or exception)
-struct dcb *dcb_current = NULL;
-
 /// Remembered FPU-using DCB (NULL if none)
 struct dcb *fpu_dcb = NULL;
 
@@ -135,9 +132,9 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
 {
 #ifdef FPU_LAZY_CONTEXT_SWITCH
     // Save state of FPU trap for this domain (treat it like normal context switched state)
-    if(dcb_current != NULL && !dcb_current->is_vm_guest) {
+    if(GROUP_PER_CORE_DCB_CURRENT != NULL && !GROUP_PER_CORE_DCB_CURRENT->is_vm_guest) {
         struct dispatcher_shared_generic *disp =
-            get_dispatcher_shared_generic(dcb_current->disp);
+            get_dispatcher_shared_generic(GROUP_PER_CORE_DCB_CURRENT->disp);
         disp->fpu_trap = fpu_trap_get();
     }
 #endif
@@ -145,12 +142,12 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
     // XXX FIXME: Why is this null pointer check on the fast path ?
     // If we have nothing to do we should call something other than dispatch
     if (dcb == NULL) {
-        dcb_current = NULL;
+        GROUP_PER_CORE_DCB_CURRENT = NULL;
         wait_for_interrupt();
     }
 
     // Don't context switch if we are current already
-    if (dcb_current != dcb) {
+    if (GROUP_PER_CORE_DCB_CURRENT != dcb) {
 
 #ifdef TRACE_CSWITCH
         trace_event(TRACE_SUBSYS_KERNEL,
@@ -159,7 +156,7 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
 #endif
 
         context_switch(dcb);
-        dcb_current = dcb;
+        GROUP_PER_CORE_DCB_CURRENT = dcb;
     }
 
     assert(dcb != NULL);
@@ -175,7 +172,7 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
     }
     TRACE(KERNEL, SC_YIELD, 1);
 
-    if (dcb->disabled) {
+    if (*get_dcb_disabled(dcb)) {
         if (disp != NULL) {
             debug(SUBSYS_DISPATCH, "resume %.*s at 0x%" PRIx64 ", %s\n",
 		  DISP_NAME_LEN, disp->name,

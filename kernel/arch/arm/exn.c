@@ -28,41 +28,41 @@ void handle_user_page_fault(lvaddr_t fault_address,
                             struct dispatcher_shared_arm *disp)
 {
     // XXX
-    // Set dcb_current->disabled correctly.  This should really be
+    // Set GROUP_PER_CORE_DCB_CURRENT_DISABLED correctly.  This should really be
     // done in exceptions.S
     // XXX
-    assert(dcb_current != NULL);
-    assert((struct dispatcher_shared_arm *)(dcb_current->disp) == disp);
+    assert(GROUP_PER_CORE_DCB_CURRENT != NULL);
+    assert((struct dispatcher_shared_arm *)(GROUP_PER_CORE_DCB_CURRENT->disp) == disp);
     if (dispatcher_is_disabled_ip((dispatcher_handle_t)disp, save_area->named.pc)) {
         assert(save_area == dispatcher_get_trap_save_area((dispatcher_handle_t)disp));
-        dcb_current->disabled = true;
+        GROUP_PER_CORE_DCB_CURRENT_DISABLED = true;
     } else {
         assert(save_area == dispatcher_get_enabled_save_area((dispatcher_handle_t)disp));
-        dcb_current->disabled = false;
+        GROUP_PER_CORE_DCB_CURRENT_DISABLED = false;
     }
 
     lvaddr_t handler;
     uintptr_t saved_pc = save_area->named.pc;
 
-    assert(dcb_current->disp_cte.cap.type == ObjType_Frame);
+    assert(GROUP_PER_CORE_DCB_CURRENT->disp_cte.cap.type == ObjType_Frame);
 
     printk(LOG_WARN, "user page fault%s in '%.*s': addr %"PRIxLVADDR
                       " IP %"PRIxPTR"\n",
-           dcb_current->disabled ? " WHILE DISABLED" : "", DISP_NAME_LEN,
+           GROUP_PER_CORE_DCB_CURRENT_DISABLED ? " WHILE DISABLED" : "", DISP_NAME_LEN,
            disp->d.name, fault_address, saved_pc);
 
-    if (dcb_current->disabled) {
+    if (GROUP_PER_CORE_DCB_CURRENT_DISABLED) {
         handler = disp->d.dispatcher_pagefault_disabled;
-        dcb_current->faults_taken++;
+        GROUP_PER_CORE_DCB_CURRENT->faults_taken++;
     } else {
         handler = disp->d.dispatcher_pagefault;
     }
 
-    if (dcb_current->faults_taken > 2) {
+    if (GROUP_PER_CORE_DCB_CURRENT->faults_taken > 2) {
         printk(LOG_WARN, "handle_user_page_fault: too many faults, "
                "making domain unrunnable\n");
-        dcb_current->faults_taken = 0; // just in case it gets restarted
-        scheduler_remove(dcb_current);
+        GROUP_PER_CORE_DCB_CURRENT->faults_taken = 0; // just in case it gets restarted
+        scheduler_remove(GROUP_PER_CORE_DCB_CURRENT);
         dispatch(schedule());
     } else {
         //
@@ -96,24 +96,24 @@ void handle_user_undef(lvaddr_t fault_address,
                        struct dispatcher_shared_arm *disp)
 {
     // XXX
-    // Set dcb_current->disabled correctly.  This should really be
+    // Set GROUP_PER_CORE_DCB_CURRENT_DISABLED correctly.  This should really be
     // done in exceptions.S
     // XXX
-    assert(dcb_current != NULL);
-    assert((struct dispatcher_shared_arm *)(dcb_current->disp) == disp);
+    assert(GROUP_PER_CORE_DCB_CURRENT != NULL);
+    assert((struct dispatcher_shared_arm *)(GROUP_PER_CORE_DCB_CURRENT->disp) == disp);
     if (dispatcher_is_disabled_ip((dispatcher_handle_t)disp, save_area->named.pc)) {
         assert(save_area == dispatcher_get_trap_save_area((dispatcher_handle_t)disp));
-        dcb_current->disabled = true;
+        GROUP_PER_CORE_DCB_CURRENT_DISABLED = true;
     } else {
         assert(save_area == dispatcher_get_enabled_save_area((dispatcher_handle_t)disp));
-        dcb_current->disabled = false;
+        GROUP_PER_CORE_DCB_CURRENT_DISABLED = false;
     }
 
     union registers_arm resume_area;
 
-    assert(dcb_current->disp_cte.cap.type == ObjType_Frame);
+    assert(GROUP_PER_CORE_DCB_CURRENT->disp_cte.cap.type == ObjType_Frame);
     printk(LOG_WARN, "user undef fault%s in '%.*s': IP %p\n",
-           dcb_current->disabled ? " WHILE DISABLED" : "", DISP_NAME_LEN,
+           GROUP_PER_CORE_DCB_CURRENT_DISABLED ? " WHILE DISABLED" : "", DISP_NAME_LEN,
            disp->d.name, fault_address);
 
     resume_area.named.cpsr = CPSR_F_MASK | ARM_MODE_USR;
@@ -294,21 +294,21 @@ void handle_irq(arch_registers_state_t* save_area,
                 struct dispatcher_shared_arm *disp)
 {
     // XXX
-    // Set dcb_current->disabled correctly.  This should really be
+    // Set GROUP_PER_CORE_DCB_CURRENT_DISABLED correctly.  This should really be
     // done in exceptions.S
     // XXX
-    if(dcb_current != NULL) {
-        assert((struct dispatcher_shared_arm *)(dcb_current->disp) == disp);
+    if(GROUP_PER_CORE_DCB_CURRENT != NULL) {
+        assert((struct dispatcher_shared_arm *)(GROUP_PER_CORE_DCB_CURRENT->disp) == disp);
         if (dispatcher_is_disabled_ip((dispatcher_handle_t)disp, fault_pc)) {
             assert(save_area ==
                    dispatcher_get_disabled_save_area(
                        (dispatcher_handle_t)disp));
-            dcb_current->disabled = true;
+            GROUP_PER_CORE_DCB_CURRENT_DISABLED = true;
         } else {
             assert(save_area ==
                    dispatcher_get_enabled_save_area(
                        (dispatcher_handle_t)disp));
-            dcb_current->disabled = false;
+            GROUP_PER_CORE_DCB_CURRENT_DISABLED = false;
         }
     }
 
@@ -316,7 +316,7 @@ void handle_irq(arch_registers_state_t* save_area,
     uint32_t irq = 0;
     irq = gic_get_active_irq();
     debug(SUBSYS_DISPATCH, "IRQ %"PRIu32" while %s\n", irq,
-          dcb_current->disabled ? "disabled": "enabled" );
+          GROUP_PER_CORE_DCB_CURRENT_DISABLED ? "disabled": "enabled" );
 
     // Offer it to the timer
     if (timer_interrupt(irq)) {

@@ -59,7 +59,7 @@ ensure_user_mode_policy(arch_registers_state_t *state)
 void __attribute__ ((noreturn))
 execute(lvaddr_t entry)
 {
-    dispatcher_handle_t handle = dcb_current->disp;
+    dispatcher_handle_t handle = GROUP_PER_CORE_DCB_CURRENT->disp;
     struct dispatcher_shared_arm *disp_arm = get_dispatcher_shared_arm(handle);
 
     arch_registers_state_t *state = &upcall_state;
@@ -104,7 +104,7 @@ void wait_for_interrupt(void)
 
     /* If we're waiting on an interrupt in the kernel, it must be because
      * there was no runnable dispatcher. */
-    assert(dcb_current == NULL);
+    assert(GROUP_PER_CORE_DCB_CURRENT == NULL);
 
     /* Let the IRQ handler know that we expect an interrupt in kernel mode, so
      * it shouldn't panic. */

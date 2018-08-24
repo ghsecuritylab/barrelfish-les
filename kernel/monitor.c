@@ -31,7 +31,7 @@ struct sysret sys_monitor_register(capaddr_t ep_caddr)
 {
     errval_t err;
     struct capability *ep;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, ep_caddr, 2, &ep,
+    err = caps_lookup_cap(&GROUP_PER_CORE_DCB_CURRENT->cspace.cap, ep_caddr, 2, &ep,
                           CAPRIGHTS_READ);
 
     if(err_is_fail(err)) {
@@ -50,7 +50,7 @@ struct sysret sys_cap_has_relations(capaddr_t caddr, uint8_t level,
     errval_t err;
 
     struct cte *cap;
-    err = caps_lookup_slot(&dcb_current->cspace.cap, caddr, level, &cap,
+    err = caps_lookup_slot(&GROUP_PER_CORE_DCB_CURRENT->cspace.cap, caddr, level, &cap,
                            CAPRIGHTS_READ);
     if (err_is_fail(err)) {
         return SYSRET(err);
@@ -136,7 +136,7 @@ struct sysret sys_monitor_identify_cap(struct capability *root,
 
 struct sysret sys_monitor_nullify_cap(capaddr_t cptr, uint8_t level)
 {
-    struct capability *root = &dcb_current->cspace.cap;
+    struct capability *root = &GROUP_PER_CORE_DCB_CURRENT->cspace.cap;
     struct cte *cte;
     errval_t err = caps_lookup_slot(root, cptr, level, &cte,
                                     CAPRIGHTS_READ_WRITE);
@@ -156,7 +156,7 @@ struct sysret sys_monitor_nullify_cap(capaddr_t cptr, uint8_t level)
 
 struct sysret sys_monitor_domain_id(capaddr_t cptr, domainid_t domain_id)
 {
-    struct capability *root = &dcb_current->cspace.cap;
+    struct capability *root = &GROUP_PER_CORE_DCB_CURRENT->cspace.cap;
     struct capability *disp;
 
     errval_t err = caps_lookup_cap(root, cptr, CPTR_BITS, &disp,
@@ -177,7 +177,7 @@ static errval_t sys_double_lookup(capaddr_t rptr, uint8_t rlevel,
     errval_t err;
 
     struct capability *root;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, rptr, rlevel,
+    err = caps_lookup_cap(&GROUP_PER_CORE_DCB_CURRENT->cspace.cap, rptr, rlevel,
                           &root, CAPRIGHTS_READ);
     if (err_is_fail(err)) {
         return err_push(err, SYS_ERR_ROOT_CAP_LOOKUP);
@@ -302,7 +302,7 @@ struct sysret sys_monitor_copy_existing(struct capability *src,
 
     /* lookup cspace for cnode_cptr */
     struct capability *root;
-    errval_t err = caps_lookup_cap(&dcb_current->cspace.cap, croot_cptr, 2,
+    errval_t err = caps_lookup_cap(&GROUP_PER_CORE_DCB_CURRENT->cspace.cap, croot_cptr, 2,
                                    &root, CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_DEST_ROOTCN_LOOKUP));
@@ -393,7 +393,7 @@ struct sysret sys_monitor_delete_last(capaddr_t root_addr, uint8_t root_level,
     }
 
     struct capability *retcn;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, ret_cn_addr,
+    err = caps_lookup_cap(&GROUP_PER_CORE_DCB_CURRENT->cspace.cap, ret_cn_addr,
                           ret_cn_level, &retcn, CAPRIGHTS_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_DEST_CNODE_LOOKUP));
@@ -417,7 +417,7 @@ struct sysret sys_monitor_delete_foreigns(capaddr_t cptr, uint8_t level)
     errval_t err;
 
     struct cte *cte;
-    err = caps_lookup_slot(&dcb_current->cspace.cap, cptr, level, &cte, CAPRIGHTS_READ);
+    err = caps_lookup_slot(&GROUP_PER_CORE_DCB_CURRENT->cspace.cap, cptr, level, &cte, CAPRIGHTS_READ);
     if (err_is_fail(err)) {
         return SYSRET(err);
     }
@@ -451,7 +451,7 @@ static errval_t sys_retslot_lookup(capaddr_t cnptr, uint8_t cnlevel,
     errval_t err;
 
     struct capability *retcn;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, cnptr, cnlevel,
+    err = caps_lookup_cap(&GROUP_PER_CORE_DCB_CURRENT->cspace.cap, cnptr, cnlevel,
                           &retcn, CAPRIGHTS_WRITE);
     if (err_is_fail(err)) {
         return err_push(err, SYS_ERR_DEST_CNODE_LOOKUP);

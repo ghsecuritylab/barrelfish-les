@@ -328,7 +328,7 @@ struct dcb *spawn_module(struct spawn_state *st,
 
     // Set disp and add to run queue
     init_dcb->disp = init_handle;
-    init_dcb->disabled = true;
+    *get_dcb_disabled(init_dcb) = true;
     make_runnable(init_dcb);
 
     // XXX: hack for 1:1 mapping

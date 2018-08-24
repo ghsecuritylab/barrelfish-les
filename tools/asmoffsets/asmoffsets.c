@@ -66,6 +66,7 @@
 #include <deputy/nodeputy.h>
 #include <kernel.h>
 #include <dispatch.h> // XXX: from kernel include dir
+#include <group.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/lmp_endpoints.h>
 
@@ -92,6 +93,15 @@ void dummy(void)
     __asm("\n#ifndef ASMOFFSETS_H\n#define ASMOFFSETS_H\n");
     DECL(DCB_DISP, struct dcb, disp);
     // DECL(DCB_DISABLED, struct dcb, disabled);
+
+    // for group
+    DECL(GROUP_MGMT_CURGROUP, struct group_mgmt, cur_group);
+    DECL(GROUP_PER_CORE_STATE, struct group, per_core_state);
+    DECL(GROUP_PER_CORE_STATE_DCB_CURRENT, struct group_per_core_state, dcb_current);
+    EMIT(SIZEOF_GROUP, sizeof(struct group));
+    EMIT(SIZEOF_GROUP_PTR, sizeof(struct group*));
+    EMIT(SIZEOF_GROUP_PER_CORE_STATE, sizeof(struct group_per_core_state));
+
     // XXX: Assumes cap is first member of struct cte
     DECL(DCB_CSPACE_CAP, struct dcb, cspace.cap);
     DECL(DCB_VSPACE, struct dcb, vspace);

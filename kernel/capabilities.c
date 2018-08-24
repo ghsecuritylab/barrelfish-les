@@ -260,8 +260,8 @@ void caps_trace(const char *func, int line, struct cte *cte, const char *msg)
     sprint_cap(cap_buf, 512, &cte->cap);
 
     char disp_buf[64];
-    if (dcb_current) {
-        dispatcher_handle_t handle = dcb_current->disp;
+    if (GROUP_PER_CORE_DCB_CURRENT) {
+        dispatcher_handle_t handle = GROUP_PER_CORE_DCB_CURRENT->disp;
         struct dispatcher_shared_generic *disp =
             get_dispatcher_shared_generic(handle);
         snprintf(disp_buf, 64, "from %.*s", DISP_NAME_LEN, disp->name);

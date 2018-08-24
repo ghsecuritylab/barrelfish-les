@@ -122,8 +122,8 @@ errval_t caps_delete_last(struct cte *cte, struct cte *ret_ram_cap)
         // Remove from queue
         scheduler_remove(dcb);
         // Reset current if it was deleted
-        if (dcb_current == dcb) {
-            dcb_current = NULL;
+        if (GROUP_PER_CORE_DCB_CURRENT == dcb) {
+            GROUP_PER_CORE_DCB_CURRENT = NULL;
         }
 
         // Remove from wakeup queue
@@ -284,7 +284,7 @@ cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
     if(ram.bytes > 0) {
         // Send back as RAM cap to monitor
         if (ret_ram_cap) {
-            if (dcb_current != monitor_ep.u.endpoint.listener) {
+            if (GROUP_PER_CORE_DCB_CURRENT != monitor_ep.u.endpoint.listener) {
                 printk(LOG_WARN, "sending fresh ram cap to non-monitor?\n");
             }
             assert(ret_ram_cap->cap.type == ObjType_Null);

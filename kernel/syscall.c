@@ -52,7 +52,7 @@ sys_dispatcher_setup(struct capability *to, capaddr_t cptr, uint8_t level,
     errval_t err = SYS_ERR_OK;
     assert(to->type == ObjType_Dispatcher);
     struct dcb *dcb = to->u.dispatcher.dcb;
-    assert(dcb != dcb_current);
+    assert(dcb != GROUP_PER_CORE_DCB_CURRENT);
 
     lpaddr_t lpaddr;
 
@@ -67,7 +67,7 @@ sys_dispatcher_setup(struct capability *to, capaddr_t cptr, uint8_t level,
         }
         if (run) {
             // Dispatchers run disabled the first time
-            dcb->disabled = 1;
+            *get_dcb_disabled(dcb) = 1;
             make_runnable(dcb);
         }
         return SYSRET(SYS_ERR_OK);
@@ -85,7 +85,7 @@ sys_dispatcher_setup(struct capability *to, capaddr_t cptr, uint8_t level,
 
     /* 1. set cspace root */
     struct cte *root;
-    err = caps_lookup_slot(&dcb_current->cspace.cap, cptr, level,
+    err = caps_lookup_slot(&GROUP_PER_CORE_DCB_CURRENT->cspace.cap, cptr, level,
                            &root, CAPRIGHTS_READ);
     if (err_is_fail(err)) {
         debug(SUBSYS_CAPS, "caps_lookup_cap for croot=%"PRIxCADDR", level=%d: %"PRIuERRV"\n", cptr, level, err);
@@ -144,7 +144,7 @@ sys_dispatcher_setup(struct capability *to, capaddr_t cptr, uint8_t level,
         }
 
         // XXX: dispatchers run disabled the first time they start
-        dcb->disabled = 1;
+        *get_dcb_disabled(dcb) = 1;
         //printf("DCB: %p %.*s\n", dcb, DISP_NAME_LEN, dcb->disp->name);
         make_runnable(dcb);
     }
@@ -155,7 +155,7 @@ sys_dispatcher_setup(struct capability *to, capaddr_t cptr, uint8_t level,
     // the same domain id as the domain doing the spawning. cf. T271
     // -SG, 2016-07-21.
     struct capability *odisp;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, odptr, CNODE_TYPE_COUNT,
+    err = caps_lookup_cap(&GROUP_PER_CORE_DCB_CURRENT->cspace.cap, odptr, CNODE_TYPE_COUNT,
                           &odisp, CAPRIGHTS_READ);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_DISP_OCAP_LOOKUP));
@@ -430,7 +430,7 @@ sys_map(struct capability *ptable, cslot_t slot, capaddr_t source_root_cptr,
     errval_t err;
 
     /* XXX: TODO: make root explicit argument for sys_map() */
-    struct capability *root = &dcb_current->cspace.cap;
+    struct capability *root = &GROUP_PER_CORE_DCB_CURRENT->cspace.cap;
 
     /* Lookup source root cn cap in own cspace */
     struct capability *src_root;
@@ -592,11 +592,11 @@ struct sysret sys_resize_l1cnode(struct capability *root, capaddr_t newroot_cptr
     }
 
     // Set new root cnode in dispatcher
-    err = caps_delete(&dcb_current->cspace);
+    err = caps_delete(&GROUP_PER_CORE_DCB_CURRENT->cspace);
     if (err_is_fail(err)) {
         return SYSRET(err);
     }
-    err = caps_copy_to_cte(&dcb_current->cspace, newroot, false, 0, 0);
+    err = caps_copy_to_cte(&GROUP_PER_CORE_DCB_CURRENT->cspace, newroot, false, 0, 0);
     if (err_is_fail(err)) {
         return SYSRET(err);
     }
@@ -621,7 +621,7 @@ struct sysret sys_resize_l1cnode(struct capability *root, capaddr_t newroot_cptr
 
 struct sysret sys_yield(capaddr_t target)
 {
-    dispatcher_handle_t handle = dcb_current->disp;
+    dispatcher_handle_t handle = GROUP_PER_CORE_DCB_CURRENT->disp;
     struct dispatcher_shared_generic *disp =
         get_dispatcher_shared_generic(handle);
 
@@ -630,7 +630,7 @@ struct sysret sys_yield(capaddr_t target)
           !disp->haswork && disp->lmp_delivered == disp->lmp_seen
            ? " and is removed from the runq" : "");
 
-    if (dcb_current->disabled == false) {
+    if (GROUP_PER_CORE_DCB_CURRENT_DISABLED == false) {
         printk(LOG_ERR, "SYSCALL_YIELD while enabled\n");
         dump_dispatcher(disp);
         return SYSRET(SYS_ERR_CALLER_ENABLED);
@@ -641,7 +641,7 @@ struct sysret sys_yield(capaddr_t target)
         errval_t err;
 
         /* directed yield */
-        err = caps_lookup_cap(&dcb_current->cspace.cap, target, 2,
+        err = caps_lookup_cap(&GROUP_PER_CORE_DCB_CURRENT->cspace.cap, target, 2,
                               &yield_to, CAPRIGHTS_READ);
         if (err_is_fail(err)) {
             return SYSRET(err);
@@ -656,7 +656,7 @@ struct sysret sys_yield(capaddr_t target)
     // Since we've done a yield, we explicitly ensure that the
     // dispatcher is upcalled the next time (on the understanding that
     // this is what the dispatcher wants), otherwise why call yield?
-    dcb_current->disabled = false;
+    GROUP_PER_CORE_DCB_CURRENT_DISABLED = false;
 
     // Remove from queue when no work and no more messages and no missed wakeup
     systime_t wakeup = disp->wakeup;
@@ -664,17 +664,17 @@ struct sysret sys_yield(capaddr_t target)
         && (wakeup == 0 || wakeup > (systime_now() + kcb_current->kernel_off))) {
 
         trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_SCHED_REMOVE,
-            (uint32_t)(lvaddr_t)dcb_current & 0xFFFFFFFF);
+            (uint32_t)(lvaddr_t)GROUP_PER_CORE_DCB_CURRENT & 0xFFFFFFFF);
         trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_SCHED_REMOVE,
                 151);
 
-        scheduler_remove(dcb_current);
+        scheduler_remove(GROUP_PER_CORE_DCB_CURRENT);
         if (wakeup != 0) {
-            wakeup_set(dcb_current, wakeup);
+            wakeup_set(GROUP_PER_CORE_DCB_CURRENT, wakeup);
         }
     } else {
         // Otherwise yield for the timeslice
-        scheduler_yield(dcb_current);
+        scheduler_yield(GROUP_PER_CORE_DCB_CURRENT);
     }
 
     if (yield_to != NULL) {
@@ -704,18 +704,18 @@ struct sysret sys_yield(capaddr_t target)
 
 struct sysret sys_suspend(bool do_halt)
 {
-    dispatcher_handle_t handle = dcb_current->disp;
+    dispatcher_handle_t handle = GROUP_PER_CORE_DCB_CURRENT->disp;
     struct dispatcher_shared_generic *disp =
         get_dispatcher_shared_generic(handle);
 
     debug(SUBSYS_DISPATCH, "%.*s suspends (halt: %d)\n", DISP_NAME_LEN, disp->name, do_halt);
 
-    if (dcb_current->disabled == false) {
+    if (GROUP_PER_CORE_DCB_CURRENT_DISABLED == false) {
         printk(LOG_ERR, "SYSCALL_SUSPEND while enabled\n");
         return SYSRET(SYS_ERR_CALLER_ENABLED);
     }
 
-    dcb_current->disabled = false;
+    GROUP_PER_CORE_DCB_CURRENT_DISABLED = false;
 
     if (do_halt) {
         //printf("%s:%s:%d: before halt of core (%"PRIuCOREID")\n",

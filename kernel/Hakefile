@@ -214,8 +214,7 @@ let
                       "arch/armv7/bsp_start.S",
                       "arch/armv7/cpu_start.S"
                     ],
-    cFiles = [
-               "arch/armv7/a15_gt.c",
+    cFiles = [ "arch/armv7/a15_gt.c",
                "arch/armv7/boot_protocol.c",
                "arch/armv7/dispatch.c",
                "arch/armv7/init.c",

@@ -8,6 +8,7 @@ typedef int groupid_t;
 
 struct group_per_core_state {
     bool enabled;
+    /// Current execution dispatcher (when in system call or exception)
     struct dcb* dcb_current;
     struct kcb* kcb_current;
 };
@@ -48,4 +49,4 @@ static inline struct dcb** get_dcb_current(void)
 }
 
 #define GROUP_PER_CORE_DCB_CURRENT (*get_dcb_current())
-#define GROUP_PER_CORE_DCB_CURRENT_DISABLED (GROUP_PER_CORE_DCB_CURRENT->disabled_arr[get_real_cpu_id()])
+#define GROUP_PER_CORE_DCB_CURRENT_DISABLED (GROUP_PER_CORE_DCB_CURRENT->per_core_state.disabled_arr[get_real_cpu_id()])
