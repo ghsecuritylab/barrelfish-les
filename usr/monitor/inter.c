@@ -729,7 +729,6 @@ static void join_us_request(struct intermon_binding *b, coreid_t origin_core)
       printf("I'm sleeping\n");
       __asm__ volatile ("wfi\n\t");
     }
-    ret:
     printf("I'm wake up\n");
 }
 

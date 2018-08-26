@@ -138,7 +138,7 @@ errval_t irq_debug_create_src_cap(uint8_t dcn_level, capaddr_t dcn,
     out_cap.cap.u.irqsrc.vec_end = end;
 
     struct cte * cn;
-    err = caps_lookup_slot(&dcb_current->cspace.cap, dcn, dcn_level, &cn,
+    err = caps_lookup_slot(&DCB_CURRENT->cspace.cap, dcn, dcn_level, &cn,
             CAPRIGHTS_WRITE);
     if(err_is_fail(err)){
         return err;

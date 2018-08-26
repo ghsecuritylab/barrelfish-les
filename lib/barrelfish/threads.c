@@ -342,10 +342,10 @@ void thread_run_disabled(dispatcher_handle_t handle)
 /** Free all heap/slab-allocated state associated with a thread */
 static void free_thread(struct thread *thread)
 {
-    __asm("mov %%fs, %0" : "=r" (fs));
 #if defined(__x86_64__) // XXX: gungy segment selector stuff
     assert(thread->thread_seg_selector != 0);
     uint16_t fs;
+    __asm("mov %%fs, %0" : "=r" (fs));
     if (thread->thread_seg_selector == fs) {
         assert(thread->disp == curdispatcher());
         struct dispatcher_x86_64 *disp_priv = get_dispatcher_x86_64(thread->disp);
