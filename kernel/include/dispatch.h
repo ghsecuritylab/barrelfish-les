@@ -66,7 +66,7 @@ struct dcb {
 
 static inline bool* get_dcb_disabled(struct dcb* dcb)
 {
-    return &dcb->per_core_state.disabled_arr[get_real_cpu_id()];
+    return &dcb->per_core_state.disabled_arr[get_core_id()];
 }
 
 static inline const char *get_disp_name(struct dcb *dcb)

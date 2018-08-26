@@ -159,7 +159,7 @@ void dummy(void)
     DECL(SAVE_AREA_ENABLED_AREA, struct save_area, enabled_save_area);
     DECL(SAVE_AREA_DISABLED_AREA, struct save_area, disabled_save_area);
     DECL(SAVE_AREA_TRAP_AREA, struct save_area, trap_save_area);
-    EMIT(SIZEOF_SAVE_AREA, sizeof(struct group));
+    EMIT(SIZEOF_SAVE_AREA, sizeof(struct save_area));
     DECL(DISP_GENERIC, struct dispatcher_arm, generic);
     DECL(BOOT_TARGET_MPID, struct armv7_boot_record, target_mpid);
     DECL(COREDATA_GOT_BASE, struct arm_core_data, got_base);

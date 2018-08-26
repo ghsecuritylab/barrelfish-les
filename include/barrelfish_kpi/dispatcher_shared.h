@@ -111,9 +111,11 @@ static inline void dispatcher_try_set_disabled(dispatcher_handle_t handle, uint3
 #include <stdio.h>
 static inline void dump_dispatcher(struct dispatcher_shared_generic *disp)
 {
-    uint32_t disabled = dispatcher_get_disabled((dispatcher_handle_t)disp);
     printf("Dump of dispatcher at address %p:\n", disp);
-    printf("  disabled      = %d (%s)\n", disabled, disabled ? "RESUME" : "UPCALL" );
+    for (int i = 0; i < MAX_CORE; i++) {
+        uint32_t disabled = dispatcher_get_disabled_by_coreid((dispatcher_handle_t)disp, i);
+        printf("  disabled%d      = %d (%s)\n", i, disabled, disabled ? "RESUME" : "UPCALL" );
+    }
     printf("  haswork       = %d\n", disp->haswork );
     printf("  udisp         = 0x%"PRIxLVADDR"\n", disp->udisp );
     printf("  lmp_delivered = %d\n", disp->lmp_delivered );

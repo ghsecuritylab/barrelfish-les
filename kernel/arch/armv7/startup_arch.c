@@ -713,6 +713,7 @@ void arm_kernel_startup(void)
     // Should not return
     MSG("Calling dispatch from arm_kernel_startup, start address is=%"PRIxLVADDR"\n",
            get_dispatcher_shared_arm(init_dcb->disp)->enabled_save_area.named.r0);
+
     dispatch(init_dcb);
     panic("Error spawning init!");
 

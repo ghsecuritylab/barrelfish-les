@@ -32,6 +32,8 @@
 //normal arm operations
         /* Get the dispatcher address from the thread register. */
         mrc     p15, 0, sp, c13, c0, 3
+        ldr     r12, =#0xfffffc00
+        and     sp, sp, r12
         ldr     r12, =(OFFSETOF_DISP_GENERIC +\offset)
         add     sp, sp, r12
 #else
@@ -61,6 +63,8 @@
 run_entry:
         init_sp      OFFSETOF_DISP_PRIV_STACK_LIMIT
         mrc p15, 0, r0, c13, c0, 3 /* udisp */
+        ldr     r2, =#0xfffffc00
+        and     r0, r0, r2
         branch       disp_run
 
 

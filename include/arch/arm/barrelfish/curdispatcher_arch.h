@@ -16,6 +16,7 @@
 #define ARCH_ARM_BARRELFISH_CURDISPATCHER_H
 
 #include <barrelfish_kpi/dispatcher_handle.h>
+#include <bitmacros.h>
 
 //
 // Helpers for pasting #defined values into inline assembler.
@@ -30,7 +31,7 @@ static inline dispatcher_handle_t curdispatcher(void)
 {
     dispatcher_handle_t ret = 0;
     __asm("mrc p15, 0, %[ret], c13, c0, 3" : [ret] "=r" (ret));
-    ret &= ~0xfff;
+    ret &= ~MASK(10);
     return ret;
 }
 

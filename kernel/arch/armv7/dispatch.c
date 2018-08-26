@@ -65,4 +65,6 @@ context_switch(struct dcb *dcb) {
          */
         arch_set_thread_register(disp->udisp);
     }
+    assert((arch_get_thread_register() & MASK(10)) == 0);
+    arch_set_thread_register((arch_get_thread_register() & ~MASK(10)) | get_core_id());
 }

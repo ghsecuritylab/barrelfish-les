@@ -21,6 +21,8 @@ _start:
         // Entry for processes other than init
         // Prepare arg1 init_dom_arg (false)
         mrc p15, 0, r0, c13, c0, 3 /* udisp */
+        ldr     r2, =#0xfffffc00
+        and     r0, r0, r2
         mov     r1, #0
 
 _start_generic:
@@ -32,6 +34,8 @@ _start_init:
         // Entry for the init process
         // Prepare arg1 init_dom_arg (true)
         mrc p15, 0, r0, c13, c0, 3 /* udisp */
+        ldr     r2, =#0xfffffc00
+        and     r0, r0, r2
         mov     r1, #1
         b       _start_generic
 

@@ -1,6 +1,7 @@
 #pragma once
 #include <stdbool.h>
 #include <barrelfish_kpi/types.h>
+#include <barrelfish_kpi/cpu_arch.h>
 
 #define MAX_CORE 16
 
@@ -43,12 +44,10 @@ struct group* get_cur_group_by_coreid(coreid_t coreid);
 struct group* get_cur_group(void);
 void set_cur_group_lazy(struct group* g);
 
-coreid_t get_real_cpu_id(void);
-
 static inline struct dcb** get_dcb_current(void)
 {
-    return &get_cur_group()->per_core_state[get_real_cpu_id()].dcb_current;
+    return &get_cur_group()->per_core_state[get_core_id()].dcb_current;
 }
 
 #define GROUP_PER_CORE_DCB_CURRENT (*get_dcb_current())
-#define GROUP_PER_CORE_DCB_CURRENT_DISABLED (GROUP_PER_CORE_DCB_CURRENT->per_core_state.disabled_arr[get_real_cpu_id()])
+#define GROUP_PER_CORE_DCB_CURRENT_DISABLED (GROUP_PER_CORE_DCB_CURRENT->per_core_state.disabled_arr[get_core_id()])

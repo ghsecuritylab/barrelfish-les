@@ -35,7 +35,11 @@ ENTRY(__aeabi_read_tp)
 	ldr	r0, .Larm_tp_address
 	ldr	r0, [r0]
 #else
+	push {r2}
 	mrc	p15, 0, r0, c13, c0, 3
+	ldr     r2, =#0xfffffc00
+	and     r0, r0, r2
+	pop  {r2}
 #endif
 	RET
 END(__aeabi_read_tp)

@@ -19,15 +19,27 @@
 #undef FPU_LAZY_CONTEXT_SWITCH
 
 #include <barrelfish_kpi/types.h>
+#include <bitmacros.h>
 
 #define MAX_CORE 16
 
 static inline coreid_t get_core_id(void)
 {
+#ifndef IN_KERNEL
     uint32_t ret = 0;
     __asm("mrc p15, 0, %[ret], c13, c0, 3" : [ret] "=r" (ret));
-    ret &= 0xfff;
+    ret &= MASK(10);
     return (coreid_t)ret;
+#else
+    uint8_t cpu_id;
+    __asm volatile(
+                    "mrc    p15, 0, %[cpu_id], c0, c0, 5\n\t" // get the MPIDR register
+                    "and    %[cpu_id], %[cpu_id], #0xF\n\t"
+                    :[cpu_id] "=r" (cpu_id)
+            );
+
+    return cpu_id;
+#endif
 }
 
 #endif
