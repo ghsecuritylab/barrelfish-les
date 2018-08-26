@@ -957,6 +957,29 @@ static void migrate_dispatcher_request(struct monitor_binding *b,
    printf("%s:%d\n", __FUNCTION__, __LINE__);
 }
 
+static struct monitor_binding* joining_b;
+ 
+static void attach_group_reply(struct intermon_binding *ib, coreid_t succ_core)
+{
+    printf("attach group finished by core %d\n", (int)succ_core);
+    monitor_attach_group_reply__tx(joining_b, NOP_CONT, succ_core);
+    joining_b = NULL;
+}
+ 
+static void attach_group_request(struct monitor_binding *b, coreid_t which_core, groupid_t target_group) {
+    struct intermon_binding *ib;
+    assert(which_core != get_core_id());
+    intermon_binding_get(which_core, &ib);
+    ib->rx_vtbl.attach_group_reply = attach_group_reply;
+    if (joining_b) {
+      //fail
+      printf("Joining_b is not nullptr, means previous join request not finished\n");
+      assert(!joining_b);
+    }
+    joining_b = b;
+    ib->tx_vtbl.attach_group_request(ib, NOP_CONT, get_core_id(), target_group);
+}
+
 struct monitor_rx_vtbl the_table = {
     .alloc_iref_request = alloc_iref_request,
     .get_service_id_request = get_service_id_request,
@@ -985,6 +1008,8 @@ struct monitor_rx_vtbl the_table = {
     .span_domain_request    = span_domain_request,
 
     .migrate_dispatcher_request = migrate_dispatcher_request,
+
+    .attach_group_request = attach_group_request,
 };
 
 errval_t monitor_client_setup(struct spawninfo *si)

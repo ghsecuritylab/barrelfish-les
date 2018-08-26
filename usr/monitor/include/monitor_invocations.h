@@ -201,6 +201,13 @@ static inline errval_t invoke_get_platform_info(uintptr_t pi)
     return cap_invoke2(cap_kernel, KernelCmd_Get_platform, pi).error;
 }
 
+//{{{1 Group operations
+static inline errval_t
+invoke_monitor_attach_group(groupid_t groupid)
+{
+    struct sysret sysret = cap_invoke2(cap_kernel, KernelCmd_Attach_group, groupid);
+    return sysret.error;
+}
 
 struct capability;
 

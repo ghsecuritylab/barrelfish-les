@@ -10,6 +10,7 @@
 interface monitor "The monitor to client Interface" {
     alias vci uint64;
     alias capid uint32;
+    alias groupid uint32;
 
     message alloc_iref_request(
         uintptr service_id);
@@ -209,4 +210,8 @@ interface monitor "The monitor to client Interface" {
 
     // Capability debugging
     message debug_print_capabilities();
+
+    /* Group operations */
+    message attach_group_request(coreid which_core, groupid target_group);
+    message attach_group_reply(coreid succ_core);
 };

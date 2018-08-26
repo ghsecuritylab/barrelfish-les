@@ -1,0 +1,4 @@
+[ build application { target = "examples/xmpl-group-test",
+                      cFiles = [ "main.c" ]
+                    }
+]

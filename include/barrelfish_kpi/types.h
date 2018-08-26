@@ -92,6 +92,11 @@ typedef uint8_t	coreid_t;
 #define MAX_COREID  254 // limit of coreid_t type (see comment above)
 #endif
 
+/* Grouop id */
+typedef uint32_t groupid_t;
+#define PRIuRSRCID  PRIu32
+#define PRIxRSRCID  PRIx32
+
 /* node id type */
 typedef coreid_t nodeid_t;
 #define PRIuNODEID PRIu8

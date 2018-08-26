@@ -5,8 +5,6 @@
 
 #define MAX_CORE 16
 
-typedef int groupid_t;
-
 struct group_per_core_state {
     bool enabled;
     /// Current execution dispatcher (when in system call or exception)

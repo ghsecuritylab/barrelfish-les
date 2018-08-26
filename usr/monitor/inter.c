@@ -719,6 +719,15 @@ static void forward_kcb_rm_response(struct intermon_binding *b, errval_t error)
     mb->tx_vtbl.forward_kcb_rm_request_response(mb, NOP_CONT, error);
 }
 
+static void attach_group_request(struct intermon_binding *ib, coreid_t caller_core, groupid_t target_group) {
+    printf("attach invoked by %d, my coreid is %d\n", (int)caller_core, (int)get_core_id());
+    intermon_attach_group_reply__tx(ib, NOP_CONT, get_core_id());
+
+    invoke_monitor_attach_group(target_group);
+    while (1) {}
+}
+
+
 static struct intermon_rx_vtbl the_intermon_vtable = {
     .trace_caps_request = trace_caps_request,
     .trace_caps_reply = trace_caps_reply,
@@ -755,6 +764,8 @@ static struct intermon_rx_vtbl the_intermon_vtable = {
 
     .forward_kcb_rm_request = forward_kcb_rm_request,
     .forward_kcb_rm_response = forward_kcb_rm_response,
+
+    .attach_group_request = attach_group_request,
 };
 
 errval_t intermon_init(struct intermon_binding *b, coreid_t coreid)

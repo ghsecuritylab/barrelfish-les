@@ -826,7 +826,8 @@ INVOCATION_HANDLER(monitor_attach_group)
 {
     INVOCATION_PRELUDE(3);
     groupid_t target_group = sa->arg2;
-    set_cur_group_lazy(get_group(target_group));
+    //set_cur_group_lazy(get_group(target_group));
+    printf("kernel attach group %d\n", target_group);
     return SYSRET(SYS_ERR_OK);
 }
 
