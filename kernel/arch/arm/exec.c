@@ -116,5 +116,5 @@ void wait_for_interrupt(void)
     __asm volatile("cpsie i");
     while(1) __asm volatile("wfi");
 
-    acquire_spinlock(&kernel_lock);
+    acquire_spinlock((bool*)&kernel_lock);
 }

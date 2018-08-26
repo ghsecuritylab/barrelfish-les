@@ -58,9 +58,11 @@
 .endm
 
 .macro locate_area base tmp
+    push {\tmp}
     get_core_id \tmp
     add \base, \base, #OFFSETOF_DISP_AREAS
     index_array \base, \tmp, #SIZEOF_SAVE_AREA
+    pop {\tmp}
 .endm
 
 
