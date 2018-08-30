@@ -110,11 +110,11 @@ void wait_for_interrupt(void)
      * it shouldn't panic. */
     waiting_for_interrupt= 1;
 
-    kernel_lock = 0;
+    unlock_cur_group();
 
     /* Unmask IRQ and wait. */
     __asm volatile("cpsie i");
     while(1) __asm volatile("wfi");
 
-    acquire_spinlock((bool*)&kernel_lock);
+    lock_cur_group();
 }

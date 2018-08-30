@@ -24,6 +24,15 @@
     and \out, \out, #0xF
 .endm
 
+.macro get_cur_group out tmp
+    ldr      \out, global_group_mgmt
+    add      \out, \out, #OFFSETOF_GROUP_MGMT_CURGROUP
+    get_core_id \tmp
+    index_array \out, \tmp, #SIZEOF_GROUP_PTR // addr of cur group ptr
+    ldr      \out, [\out] // load cur group ptr
+.endm
+
+
 .macro index_array base index elem_size
 0:
     cmp \index, #0
@@ -34,27 +43,28 @@
 1:
 .endm
 
-.macro lock_kernel lockreg constantreg tmpreg gotreg
+.macro lock_cur_group lockreg constantreg tmpreg
+    get_cur_group \lockreg \constantreg
+
+    ldr \lockreg, [\lockreg, #OFFSETOF_GROUP_LOCK]
+    get_core_id \constantreg
+    add \constantreg, \constantreg, #1
+
     clrex
-    load_got \gotreg
-    ldr \lockreg, got_kernel_lock
-    add \lockreg, \gotreg, \lockreg
-    ldr \constantreg, =#1
 1:
     ldrex \tmpreg, [\lockreg]
     teq        \tmpreg, #0
     strexeq    \tmpreg, \constantreg, [\lockreg]
     teqeq      \tmpreg, #0
     bne        1b
-    clrex
 .endm
 
-.macro unlock_kernel lockreg constantreg gotreg
+.macro unlock_cur_group lockreg constantreg
+    get_cur_group \lockreg \constantreg
     clrex
-    load_got \gotreg
-    ldr \lockreg, got_kernel_lock
+    ldr \lockreg, [\lockreg, #OFFSETOF_GROUP_LOCK]
     ldr \constantreg, =#0
-    str \constantreg, [\gotreg, \lockreg]
+    str \constantreg, [\lockreg]
 .endm
 
 .macro locate_area base tmp
@@ -76,26 +86,12 @@
     add sp, sp, #KERNEL_STACK_SIZE
 .endm
 
-
 // Macro definition to get pointer to arch-specific dispatcher
 //
 // Logical equivalent of C function with same name
 //
 .macro get_dispatcher_shared_arm out tmp
-    // check lazy load
-    ldr      \out, global_group_mgmt
-    add      \out, \out, #OFFSETOF_GROUP_MGMT_LAZY_LOAD_TARGET_GROUP
-    get_core_id \tmp
-    index_array \out, \tmp, #SIZEOF_GROUP_PTR // addr of lazy load target group
-    ldr      \out, [\out]
-    cmp      \out, #0
-    bne      1f
-
-    ldr      \out, global_group_mgmt
-    add      \out, \out, #OFFSETOF_GROUP_MGMT_CURGROUP
-    get_core_id \tmp
-    index_array \out, \tmp, #SIZEOF_GROUP_PTR // addr of cur group ptr
-    ldr      \out, [\out] // load cur group ptr
+    get_cur_group \out, \tmp
     add      \out, \out, #OFFSETOF_GROUP_PER_CORE_STATE
 
     get_core_id \tmp
@@ -103,7 +99,6 @@
     ldr      \out, [\out, #OFFSETOF_GROUP_PER_CORE_STATE_DCB_CURRENT]
 
     ldr      \out, [\out, #OFFSETOF_DCB_DISP] //now ptr to dispatcher_shared_arm
-1:
 .endm
 
 //
@@ -281,10 +276,6 @@ got_kernel_fiq:
 global_group_mgmt:
     .word 0,0
 
-    .type got_kernel_lock, STT_OBJECT
-got_kernel_lock:
-    .word kernel_lock(GOT)
-
 //
 // void undef_handler(void)
 //
@@ -296,7 +287,7 @@ got_kernel_lock:
 //
 undef_handler:
     stmfd   sp!, {r0-r3}                    // Save for scratch use
-    lock_kernel r0 r1 r2 r3
+    lock_cur_group r0 r1 r2
     mrs     r3, spsr                        // r3 = spsr until save_context
     ands    r1, r3, #ARM_MODE_PRIV
     bne     $undef_kernel
@@ -342,7 +333,7 @@ swi_handler:
     
     // Are we in kernel mode or not?
     stmfd   sp!, {r0-r3}                    // Save for scratch use
-    lock_kernel r0 r1 r2 r3
+    lock_cur_group r0 r1 r2
     mrs     r3, spsr                        // r3 = spsr until save_context
     ands    r1, r3, #ARM_MODE_PRIV
     bne     $swi_kernel
@@ -449,7 +440,7 @@ $dabt_kernel:
 //
 irq_handler:
     stmfd   sp!, {r0-r3}                    // Save for scratch use
-    lock_kernel r0 r1 r2 r3
+    lock_cur_group r0 r1 r2
     sub     lr, lr, #4                      // lr = return address
     mrs     r3, spsr                        // r3 = spsr until save_context
     ands    r1, r3, #ARM_MODE_PRIV
@@ -490,7 +481,7 @@ $irq_kernel:
 //
 fiq_handler:
     stmfd   sp!, {r0-r3}                    // Save for scratch use
-    lock_kernel r0 r1 r2 r3
+    lock_cur_group r0 r1 r2
     sub     lr, lr, #4                      // lr = return address
     mrs     r3, spsr                        // r0 = spsr until save_context
     ands    r1, r3, #ARM_MODE_PRIV
@@ -525,6 +516,7 @@ $fiq_kernel:
     ldr r3, got_kernel_fiq
     ldr pc, [PIC_REGISTER, r3]              // f(save_area, fault_pc)
 
+.extern print_r0
     .global do_resume
 do_resume:
     clrex
@@ -560,7 +552,29 @@ do_resume:
     ldmia  lr, {r13, r14}^
 
     push {r0-r2}
-    unlock_kernel r0 r1 r2
+    unlock_cur_group r0 r1
+
+    // check lazy load
+    ldr      r0, global_group_mgmt
+    add      r0, r0, #OFFSETOF_GROUP_MGMT_LAZY_LOAD_TARGET_GROUP
+    get_core_id r2
+    index_array r0, r2, #SIZEOF_GROUP_PTR // addr of lazy load target group
+    ldr      r2, [r0]
+    cmp      r2, #0
+    beq     1f
+
+    // reset lazy_load_group_ptr to nullptr
+    ldr      r1, =#0
+    str      r1, [r0]
+
+    // now r2 = lazy_load_group_ptr
+    ldr      r0, global_group_mgmt
+    add      r0, r0, #OFFSETOF_GROUP_MGMT_CURGROUP
+    get_core_id r1
+    index_array r0, r1, #SIZEOF_GROUP_PTR // addr of cur group ptr
+    str      r2, [r0] // load cur group ptr
+
+    1:
     pop {r0-r2}
 
     // Load the (banked SVC) LR with the return address (add the offset

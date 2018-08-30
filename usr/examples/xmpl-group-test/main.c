@@ -5,7 +5,6 @@
 #include <bench/bench.h>
 #include <barrelfish/spawn_client.h>
 #include <barrelfish/nameservice_client.h>
-#include <if/xmpl_group_defs.h>
 
 static void attach_reply(struct monitor_binding *b, coreid_t succ_core) {
     printf("Coreid %hhu attached\n", succ_core);

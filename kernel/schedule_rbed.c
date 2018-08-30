@@ -297,6 +297,20 @@ struct dcb *schedule(void)
     struct dcb *todisp;
     systime_t now = systime_now();
 
+    if (!is_leader_core()) {
+        // attached
+        struct dcb* step = kcb_current->queue_head;
+        while (step) {
+            if (strcmp(get_disp_name(step), "xmpl-group-test") == 0) {
+                printf("heihei~\n");
+                return step;
+            }
+            step = step->next;
+        }
+        return NULL;
+
+    }
+
     // Assert we are never overloaded
     assert(kcb_current->u_hrt + kcb_current->u_srt + BETA <= SPECTRUM);
 

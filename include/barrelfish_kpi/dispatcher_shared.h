@@ -60,6 +60,7 @@ struct dispatcher_shared_generic {
 
     uint64_t    systime_frequency;              ///< Systime frequency
     coreid_t    curr_core_id;                   ///< Core id of current core, in this part so kernel can update
+    groupid_t   group_id;                       ///< Group id of this dispatcher
 #ifdef __k1om__
     uint8_t     xeon_phi_id;
 #endif
@@ -106,6 +107,16 @@ static inline void dispatcher_set_disabled(dispatcher_handle_t handle, uint32_t 
 static inline void dispatcher_try_set_disabled(dispatcher_handle_t handle, uint32_t disabled, bool* was_enabled)
 {
     return dispatcher_try_set_disabled_by_coreid(handle, get_core_id(), disabled, was_enabled);
+}
+
+static inline groupid_t dispatcher_get_group_id(dispatcher_handle_t handle)
+{
+    return ((struct dispatcher_shared_generic *)handle)->group_id;
+}
+
+static inline bool dispatcher_is_in_leader_core(dispatcher_handle_t handle)
+{
+    return dispatcher_get_group_id(handle) == get_core_id();
 }
 
 #include <stdio.h>

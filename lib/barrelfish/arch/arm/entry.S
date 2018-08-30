@@ -27,15 +27,25 @@
 //since thumb2 has a shorter branch range and can not directly load values into
 //high registers, we have to clobber one of the registers for that. 
 
-.macro init_sp offset
+.macro init_sp offset size
 #ifndef __thumb2__
 //normal arm operations
         /* Get the dispatcher address from the thread register. */
-        mrc     p15, 0, sp, c13, c0, 3
+        mrc     p15, 0, r10, c13, c0, 3
         ldr     r12, =#0xfffffc00
-        and     sp, sp, r12
+        and     sp, r10, r12
+        ldr     r12, =#0x3ff
+        and     r5, r10, r12
         ldr     r12, =(OFFSETOF_DISP_GENERIC +\offset)
         add     sp, sp, r12
+        
+1:
+        cmp     r5, #0
+        beq     2f
+        sub     r5, r5, #1
+        sub     sp, sp, \size
+        b       1b
+2:
 #else
 //XXX: this assumes we are allowed to clobber r3!
 #error "Thumb support is currently broken"
@@ -61,7 +71,7 @@
 // void run_entry(struct disp_priv* p)
 //        
 run_entry:
-        init_sp      OFFSETOF_DISP_PRIV_STACK_LIMIT
+        init_sp      OFFSETOF_DISP_PRIV_STACK_LIMIT, SIZEOF_DISP_PRIV_STACK_PER_CORE_SIZE
         mrc p15, 0, r0, c13, c0, 3 /* udisp */
         ldr     r2, =#0xfffffc00
         and     r0, r0, r2
@@ -72,7 +82,7 @@ run_entry:
 // void pagefault_entry(disp ptr, vaddr_t fault_addr, uintptr_t error, vaddr_t pc)
 //
 pagefault_entry:
-        init_sp      OFFSETOF_DISP_PRIV_STACK_LIMIT
+        init_sp      OFFSETOF_DISP_PRIV_STACK_LIMIT, SIZEOF_DISP_PRIV_STACK_PER_CORE_SIZE
         branch       disp_pagefault
 
 
@@ -80,7 +90,7 @@ pagefault_entry:
 // void disabled_pagefault_entry(disp ptr, vaddr_t fault_addr, uintptr_t error, vaddr_t pc)
 //
 disabled_pagefault_entry:
-        init_sp      OFFSETOF_DISP_PRIV_TRAP_STACK_LIMIT
+        init_sp      OFFSETOF_DISP_PRIV_TRAP_STACK_LIMIT, SIZEOF_DISP_PRIV_TRAP_STACK_PER_CORE_SIZE
         branch       disp_pagefault_disabled
 
 
@@ -88,6 +98,6 @@ disabled_pagefault_entry:
 // void trap_entry(disp ptr, uintptr_t irq, uintptr_t error, vaddr_t pc)
 //
 trap_entry:
-        init_sp      OFFSETOF_DISP_PRIV_TRAP_STACK_LIMIT
+        init_sp      OFFSETOF_DISP_PRIV_TRAP_STACK_LIMIT, SIZEOF_DISP_PRIV_TRAP_STACK_PER_CORE_SIZE
         branch       disp_trap
 

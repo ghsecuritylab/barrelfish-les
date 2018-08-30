@@ -21,7 +21,7 @@
 #include <barrelfish_kpi/types.h>
 #include <bitmacros.h>
 
-#define MAX_CORE 16
+#define MAX_CORE 8
 
 static inline coreid_t get_core_id(void)
 {

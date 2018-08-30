@@ -3,10 +3,7 @@
 #include <startup.h>
 #include <stdio.h>
 #include <cp15.h>
-volatile int kernel_lock;
-
 // struct group_mgmt* global_group_mgmt __attribute__((section(".text")));
-
 static void group_init_globals(void)
 {
     // __asm volatile (
@@ -16,7 +13,6 @@ static void group_init_globals(void)
     //     "  .word 0                             ""\n\t"
     // );
 
-    kernel_lock = 0;
     global_group_mgmt = (struct group_mgmt*)bsp_alloc_phys(sizeof(struct group_mgmt));
     printf("MGMT: %lx\n", global_group_mgmt);
 }
@@ -35,8 +31,7 @@ static lvaddr_t set_got_base_lazy(lvaddr_t got_base) {
     lvaddr_t origin = get_got_base();
     __asm__ volatile (
         "mcr p15, 0, %[got_base], c13, c0, 4\n\t"
-        :[origin_got] "=r" (origin)
-        :[got_base] "r" (got_base)
+        ::[got_base] "r" (got_base)
     );
     return origin;
 }
@@ -61,18 +56,32 @@ struct group* get_cur_group_by_coreid(coreid_t coreid)
 struct group* get_cur_group(void)
 {
     coreid_t id = get_core_id();
-    if (global_group_mgmt->lazy_load_target_group[id]) {
-        set_cur_group_by_coreid(id, global_group_mgmt->lazy_load_target_group[id]);
-        global_group_mgmt->lazy_load_target_group[id] = NULL;
+    struct group** target = &global_group_mgmt->lazy_load_target_group[id];
+    if (*target && !global_group_mgmt->can_update[id]) {
+        printf("cannot update yet\n");
+    }
+    if (global_group_mgmt->can_update[id] && *target) {
+        while (1);
+        struct group* to = *target;
+        *target = NULL;
+        printf("updating\n");
+        set_cur_group_by_coreid(id, to);
+        while(1);
     }
     return get_cur_group_by_coreid(id);
 }
 
 void set_cur_group_lazy(struct group* g)
 {
+    printf("???????*target: %x coreid: %d ????, got: %x\n", g->group_id, get_core_id(), g->got_base);
     global_group_mgmt->lazy_load_target_group[get_core_id()] = g;
+    global_group_mgmt->can_update[get_core_id()] = false;
     // XXX this should be moved to arch specified code
     set_got_base_lazy(g->got_base);
+
+    // prepare per core state in target group
+    g->per_core_state[get_core_id()].dcb_current = GROUP_PER_CORE_DCB_CURRENT;
+    g->per_core_state[get_core_id()].kcb_current = NULL;
 }
 
 static void group_init_common(void)
@@ -82,9 +91,15 @@ static void group_init_common(void)
     cur->enabled = true;
     cur->got_base = set_got_base_lazy(get_got_base());
     cur->group_id = coreid;
+    if (arch_core_is_bsp()) {
+        cur->lock = (volatile int*)bsp_alloc_phys_aligned(4, 4);
+    } else {
+        cur->lock = (volatile int*)app_alloc_phys_aligned(4, 4);
+    }
+    *cur->lock = 0;
     cur->per_core_state[coreid].enabled = true;
 
-    printf("MGMT: %lx\n", global_group_mgmt);
+    printf("MGMT: %lx, got_base: %x\n", global_group_mgmt, cur->got_base);
 }
 
 void group_bsp_init(void)

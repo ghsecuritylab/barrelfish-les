@@ -76,7 +76,7 @@ void printk(int level, const char *msg, ...)
         vsnprintf(buf, sizeof(buf), msg, ap);
         va_end(ap);
 
-        printf("kernel %d: %.*s", my_core_id, (int)sizeof(buf), buf);
+        printf("kernel %d: %.*s", get_core_id(), (int)sizeof(buf), buf);
     }
 }
 

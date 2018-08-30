@@ -169,6 +169,7 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
 
     if(disp != NULL) {
         disp->systime = systime_now() + kcb_current->kernel_off;
+        disp->group_id = get_core_id();
     }
     TRACE(KERNEL, SC_YIELD, 1);
 

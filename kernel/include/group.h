@@ -2,8 +2,11 @@
 #include <stdbool.h>
 #include <barrelfish_kpi/types.h>
 #include <barrelfish_kpi/cpu_arch.h>
+#include <barrelfish_kpi/spinlocks_arch.h>
 
-#define MAX_CORE 16
+#ifndef MAX_CORE
+#define MAX_CORE 4
+#endif
 
 struct group_per_core_state {
     bool enabled;
@@ -22,6 +25,7 @@ struct group {
     groupid_t group_id;
     lvaddr_t got_base;
     struct group_per_core_state per_core_state[MAX_CORE];
+    volatile int* lock;
 };
 
 struct group_mgmt {
@@ -29,10 +33,10 @@ struct group_mgmt {
     struct group* cur_group[MAX_CORE];  // 每个Core当前所属的Group
 
     struct group* lazy_load_target_group[MAX_CORE];
+    int can_update[MAX_CORE]; //表明是否可以用lazy_load的值更新cur_group，在每次重新由用户态进入时则可以更新
 };
 
 extern struct group_mgmt *global_group_mgmt;
-extern volatile int kernel_lock;
 
 void group_bsp_init(void);
 void group_app_init(void);
@@ -47,5 +51,22 @@ static inline struct dcb** get_dcb_current(void)
     return &get_cur_group()->per_core_state[get_core_id()].dcb_current;
 }
 
+static inline bool is_leader_core(void)
+{
+    return get_core_id() == get_cur_group()->group_id;
+}
+
+static inline void lock_cur_group(void)
+{
+    acquire_spinlock((spinlock_t*)get_cur_group()->lock);
+}
+
+static inline void unlock_cur_group(void)
+{
+    release_spinlock((spinlock_t*)get_cur_group()->lock);
+}
+
 #define GROUP_PER_CORE_DCB_CURRENT (*get_dcb_current())
 #define GROUP_PER_CORE_DCB_CURRENT_DISABLED (GROUP_PER_CORE_DCB_CURRENT->per_core_state.disabled_arr[get_core_id()])
+
+void print_r0(void* ptr);

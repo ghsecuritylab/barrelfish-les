@@ -99,7 +99,11 @@ void dummy(void)
     DECL(GROUP_MGMT_LAZY_LOAD_TARGET_GROUP, struct group_mgmt, lazy_load_target_group);
     DECL(GROUP_PER_CORE_STATE, struct group, per_core_state);
     DECL(GROUP_PER_CORE_STATE_DCB_CURRENT, struct group_per_core_state, dcb_current);
+    DECL(GROUP_LOCK, struct group, lock);
+    DECL(GROUP_GROUP_ID, struct group, group_id);
+    DECL(GROUP_MGMT_CAN_UPDATE, struct group_mgmt, can_update);
     EMIT(SIZEOF_GROUP, sizeof(struct group));
+    EMIT(SIZEOF_GROUP_MGMT_CAN_UPDATE, sizeof(((struct group_mgmt*)NULL)->can_update[0]));
     EMIT(SIZEOF_GROUP_PTR, sizeof(struct group*));
     EMIT(SIZEOF_GROUP_PER_CORE_STATE, sizeof(struct group_per_core_state));
 
@@ -130,6 +134,8 @@ void dummy(void)
 
     DECL_LIMIT(DISP_PRIV_STACK_LIMIT, struct dispatcher_generic, stack);
     DECL_LIMIT(DISP_PRIV_TRAP_STACK_LIMIT, struct dispatcher_generic, trap_stack);
+    EMIT(SIZEOF_DISP_PRIV_STACK_PER_CORE_SIZE, sizeof(((struct dispatcher_generic*)0)->stack) / MAX_CORE);
+    EMIT(SIZEOF_DISP_PRIV_TRAP_STACK_PER_CORE_SIZE, sizeof(((struct dispatcher_generic*)0)->trap_stack) / MAX_CORE);
 
 #if defined (__x86_64__) || defined(__k1om__)
     DECL(DISP_X86_64_CRIT_PC_LOW, struct dispatcher_shared_x86_64, crit_pc_low);
