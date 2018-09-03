@@ -333,9 +333,9 @@ mdb_check_invariants_user :: Bool
 mdb_check_invariants_user = True
 
 -- Select scheduler
-data Scheduler = RBED | RR deriving (Show,Eq)
+data Scheduler = RBED | RR | SMP deriving (Show,Eq)
 scheduler :: Scheduler
-scheduler = RBED
+scheduler = SMP
 
 -- Physical Address Extensions (PAE)-enabled paging on x86-32
 pae_paging :: Bool

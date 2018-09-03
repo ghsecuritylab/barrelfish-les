@@ -28,6 +28,7 @@ let
   scheduler = case Config.scheduler of
       Config.RR   -> "schedule_rr.c"
       Config.RBED -> "schedule_rbed.c"
+      Config.SMP -> "schedule_smp.c"
   common_c = [ "gdb_stub.c",
                "capabilities.c",
                "cap_delete.c",

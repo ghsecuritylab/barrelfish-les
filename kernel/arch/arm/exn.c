@@ -293,9 +293,6 @@ void handle_irq(arch_registers_state_t* save_area,
                 uintptr_t fault_pc,
                 struct dispatcher_shared_arm *disp)
 {
-    if (!is_leader_core()) {
-        while(1);
-    }
     // XXX
     // Set GROUP_PER_CORE_DCB_CURRENT_DISABLED correctly.  This should really be
     // done in exceptions.S
