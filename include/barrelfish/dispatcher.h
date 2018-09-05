@@ -28,6 +28,14 @@ struct notificator;
 /// Maximum number of buffered capability receive slots
 #define MAX_RECV_SLOTS   4
 
+struct dispatcher_generic_per_core_state {
+    /// Currently-running (or last-run) thread, if any
+    struct thread *current;
+
+    /// Thread run queue (all threads eligible to be run in this core)
+    struct thread *runnable_threads;
+};
+
 // Architecture generic user only dispatcher struct
 struct dispatcher_generic {
     /// stack for traps and disabled pagefaults
@@ -35,14 +43,13 @@ struct dispatcher_generic {
     /// all other dispatcher upcalls run on this stack
     uintptr_t stack[DISPATCHER_STACK_WORDS * MAX_CORE] __attribute__ ((aligned (16)));
 
-    /// Currently-running (or last-run) thread, if any
-    struct thread *current;
-
-    /// Thread run queue (all threads eligible to be run)
-    struct thread *runq;
-
     /// Cap to this dispatcher, used for creating new endpoints
     struct capref dcb_cap;
+
+    /// Thread run queue (all threads waiting for attach core)
+    struct thread *runq;
+
+    struct dispatcher_generic_per_core_state dispatcher_per_core_state[MAX_CORE];
 
 #ifdef CONFIG_INTERCONNECT_DRIVER_LMP
     /// List of LMP endpoints to poll
@@ -100,5 +107,13 @@ struct dispatcher_generic {
     int8_t recv_slot_count;                 ///< number of currently queued recv slots
 
 };
+
+static struct thread** get_current_thread(dispatcher_handle_t handler) 
+{
+    return &get_dispatcher_generic(handler)->dispatcher_per_core_state[get_core_id()].current;
+}
+
+#define CURRENT_THREAD (*get_current_thread(curdispatcher()))
+#define CURRENT_THREAD_OF_DISP(h) (*get_current_thread(h))
 
 #endif // BARRELFISH_DISPATCHER_H
