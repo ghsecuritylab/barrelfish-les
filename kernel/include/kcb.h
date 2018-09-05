@@ -18,6 +18,7 @@
 #include <kernel.h>
 #include <capabilities.h>
 #include <irq.h>
+#include <group.h>
 #include <mdb/mdb_tree.h>
 
 struct cte;
@@ -26,6 +27,11 @@ struct dcb;
 enum sched_state {
     SCHED_RR,
     SCHED_RBED,
+    SCHED_SMP,
+};
+
+struct kcb_per_core_state {
+    struct dcb* ring_current;
 };
 
 /**
@@ -56,6 +62,9 @@ struct kcb {
     struct dcb *ring_current;
     /// RBED scheduler state
     struct dcb *queue_head, *queue_tail;
+    /// SMP scheduler state
+    struct dcb *dcb_ring;
+    struct kcb_per_core_state per_core_state[MAX_CORE];
     unsigned int u_hrt, u_srt, w_be, n_be;
     /// current time since kernel start in timeslices. This is necessary to
     /// make the scheduler work correctly
@@ -69,6 +78,8 @@ struct kcb {
     uint8_t irq_in_use[NDISPATCH / 8]; // Bitmap of handed out caps.
     struct cte irq_dispatch[NDISPATCH];
     // TODO: maybe add a shared part which can replace struct core_data?
+
+
 };
 
 ///< The kernel control block
@@ -92,14 +103,13 @@ static inline void print_kcb(void)
 }
 
 // XXX: this is from RBED, don't know how to properly have this here -SG
-extern struct dcb *queue_tail;
 static inline void switch_kcb(struct kcb *next)
 {
     assert (next != NULL);
     kcb_current = next;
     mdb_init(kcb_current);
     // update queue tail to make associated assembly not choke
-    queue_tail = kcb_current->queue_tail;
+    //queue_tail = kcb_current->queue_tail;
 }
 
 void kcb_add(struct kcb* new_kcb);

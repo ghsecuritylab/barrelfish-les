@@ -17,7 +17,8 @@ struct group_per_core_state {
 
 struct dcb_per_core_state {
     struct group* group;
-    bool disabled_arr[MAX_CORE];
+    bool disabled;
+    bool scheduled; // ever scheduled in this core
 };
 
 struct group {
@@ -67,6 +68,6 @@ static inline void unlock_cur_group(void)
 }
 
 #define GROUP_PER_CORE_DCB_CURRENT (*get_dcb_current())
-#define GROUP_PER_CORE_DCB_CURRENT_DISABLED (GROUP_PER_CORE_DCB_CURRENT->per_core_state.disabled_arr[get_core_id()])
+#define GROUP_PER_CORE_DCB_CURRENT_DISABLED (GROUP_PER_CORE_DCB_CURRENT->per_core_state[get_core_id()].disabled)
 
 void print_r0(void* ptr);

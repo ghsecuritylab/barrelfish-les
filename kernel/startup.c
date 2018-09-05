@@ -144,6 +144,8 @@ struct dcb *spawn_module(struct spawn_state *st,
     kcb_current->sched = SCHED_RR;
 #elif defined(CONFIG_SCHEDULER_RBED)
     kcb_current->sched = SCHED_RBED;
+#elif defined(CONFIG_SCHEDULER_SMP)
+    kcb_current->sched = SCHED_SMP;
 #else
 #error invalid scheduler
 #endif

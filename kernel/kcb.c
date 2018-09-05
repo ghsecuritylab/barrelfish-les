@@ -93,6 +93,7 @@ void kcb_update_core_id(struct kcb *kcb)
     }
 #elif CONFIG_SCHEDULER_RR
 #error NYI!
+#elif CONFIG_SCHEDULER_SMP
 #else
 #error must define scheduler policy in Config.hs
 #endif

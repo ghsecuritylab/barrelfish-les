@@ -169,9 +169,19 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
 
     if(disp != NULL) {
         disp->systime = systime_now() + kcb_current->kernel_off;
-        disp->group_id = get_core_id();
+        disp->group_id = get_cur_group()->group_id;
     }
     TRACE(KERNEL, SC_YIELD, 1);
+
+    if (!*get_dcb_scheduled(dcb)) {
+        *get_dcb_scheduled(dcb) = true;
+        if (!is_leader_core()) {
+            *get_dcb_disabled(dcb) = true;
+            dispatcher_set_disabled(dcb->disp, true);
+            printf("First time to schedule it, disp_run is %x\n", disp->dispatcher_run);
+            execute(disp->dispatcher_run);
+        }
+    }
 
     if (*get_dcb_disabled(dcb)) {
         if (disp != NULL) {

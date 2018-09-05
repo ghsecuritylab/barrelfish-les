@@ -85,8 +85,8 @@ void disp_run(dispatcher_handle_t handle)
     // We can't call printf(), so do this silly thing...
 //    assert_print("FIXME: infinite while loop\n");
 //    while(1);
-    if (!dispatcher_is_in_leader_core(handle)) {
-        printf("ei?\n");
+    if (!dispatcher_is_leader_core(handle)) {
+        assert_print("FIXME: infinite while loop\n");
         while(1);
     }
 

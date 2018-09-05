@@ -15,8 +15,53 @@
 #include <kernel.h>
 #include <dispatch.h>
 #include <kcb.h>
+#include <group.h>
 
 #include <timer.h> // update_sched_timer
+
+static struct dcb *schedule_leader_core(void)
+{
+    // empty ring
+    if(kcb_current->dcb_ring == NULL) {
+        return NULL;
+    }
+
+    assert(kcb_current->dcb_ring->next != NULL);
+    assert(kcb_current->dcb_ring->prev != NULL);
+
+    kcb_current->dcb_ring = kcb_current->dcb_ring->next;
+    #ifdef CONFIG_ONESHOT_TIMER
+    update_sched_timer(kernel_now + kernel_timeslice);
+    #endif
+    return kcb_current->dcb_ring;
+}
+
+static struct dcb *schedule_member_core(void)
+{
+    // empty ring
+    if(kcb_current->dcb_ring == NULL) {
+        return NULL;
+    }
+
+    assert(kcb_current->dcb_ring->next != NULL);
+    assert(kcb_current->dcb_ring->prev != NULL);
+
+    struct dcb* step = kcb_current->dcb_ring;
+    do {
+        char* name = get_dispatcher_shared_generic(step->disp)->name;
+        if (!strcmp(name, "xmpl-group-test")) {
+            printf("FOUND %s", name);
+            break;
+        }
+        step = step->next;
+    } while (step != kcb_current->dcb_ring);
+    if (step == kcb_current->dcb_ring) {
+        step = NULL;
+    }
+    kcb_current->per_core_state[get_core_id()].ring_current = step;
+
+    return step;
+}
 
 /**
  * \brief Scheduler policy.
@@ -25,19 +70,7 @@
  */
 struct dcb *schedule(void)
 {
-    // empty ring
-    if(kcb_current->ring_current == NULL) {
-        return NULL;
-    }
-
-    assert(kcb_current->ring_current->next != NULL);
-    assert(kcb_current->ring_current->prev != NULL);
-
-    kcb_current->ring_current = kcb_current->ring_current->next;
-    #ifdef CONFIG_ONESHOT_TIMER
-    update_sched_timer(kernel_now + kernel_timeslice);
-    #endif
-    return ring_current;
+    return is_leader_core() ? schedule_leader_core() : schedule_member_core();
 }
 
 void make_runnable(struct dcb *dcb)
@@ -47,16 +80,16 @@ void make_runnable(struct dcb *dcb)
         assert(dcb->prev == NULL && dcb->next == NULL);
 
         // Ring empty
-        if(kcb_current->ring_current == NULL) {
-            kcb_current->ring_current = dcb;
+        if(kcb_current->dcb_ring == NULL) {
+            kcb_current->dcb_ring = dcb;
             dcb->next = dcb;
         }
 
         // Insert after current ring position
-        dcb->prev = kcb_current->ring_current;
-        dcb->next = kcb_current->ring_current->next;
-        kcb_current->ring_current->next->prev = dcb;
-        kcb_current->ring_current->next = dcb;
+        dcb->prev = kcb_current->dcb_ring;
+        dcb->next = kcb_current->dcb_ring->next;
+        kcb_current->dcb_ring->next->prev = dcb;
+        kcb_current->dcb_ring->next = dcb;
     }
 }
 
@@ -77,21 +110,21 @@ void scheduler_remove(struct dcb *dcb)
         return;
     }
 
-    struct dcb *next = kcb_current->ring_current->next;
+    struct dcb *next = kcb_current->dcb_ring->next;
 
     // Remove dcb from scheduler ring
     dcb->prev->next = dcb->next;
     dcb->next->prev = dcb->prev;
     dcb->prev = dcb->next = NULL;
 
-    // Removing ring_current
-    if(dcb == kcb_current->ring_current) {
+    // Removing dcb_ring
+    if(dcb == kcb_current->dcb_ring) {
         if(dcb == next) {
             // Only guy in the ring
-            kcb_current->ring_current = NULL;
+            kcb_current->dcb_ring = NULL;
         } else {
-            // Advance ring_current
-            kcb_current->ring_current = next;
+            // Advance dcb_ring
+            kcb_current->dcb_ring = next;
         }
     }
 }
@@ -147,8 +180,8 @@ void scheduler_convert(void)
             printf("don't know how to convert %d to RBED state\n", from);
             break;
     }
-    kcb_current->ring_current = kcb_current->queue_head;
-    for (struct dcb *i = kcb_current->ring_current; i != kcb_current->ring_current; i=i->next) {
+    kcb_current->dcb_ring = kcb_current->queue_head;
+    for (struct dcb *i = kcb_current->dcb_ring; i != kcb_current->dcb_ring; i=i->next) {
         printf("dcb %p\n  prev=%p\n  next=%p\n", i, i->prev, i->next);
     }
 }
@@ -156,4 +189,9 @@ void scheduler_convert(void)
 void scheduler_restore_state(void)
 {
     // No-Op in RR scheduler
+}
+
+void schedule_now(struct dcb *dcb)
+{
+    return;
 }

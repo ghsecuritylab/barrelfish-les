@@ -55,7 +55,7 @@ struct dcb {
                                         /// (only valid iff CONFIG_SCHEDULER_RR)
 
     // bool                disabled;       ///< Was dispatcher disabled when last saved?
-    struct dcb_per_core_state per_core_state; /// Group per core state for dcb
+    struct dcb_per_core_state per_core_state[MAX_CORE]; /// Group per core state for dcb
 #if defined(CONFIG_SCHEDULER_RBED)
     systime_t          release_time, etime, last_dispatch;
     systime_t          wcet, period, deadline;
@@ -66,7 +66,12 @@ struct dcb {
 
 static inline bool* get_dcb_disabled(struct dcb* dcb)
 {
-    return &dcb->per_core_state.disabled_arr[get_core_id()];
+    return &dcb->per_core_state[get_core_id()].disabled;
+}
+
+static inline bool* get_dcb_scheduled(struct dcb* dcb)
+{
+    return &dcb->per_core_state[get_core_id()].scheduled;
 }
 
 static inline const char *get_disp_name(struct dcb *dcb)
