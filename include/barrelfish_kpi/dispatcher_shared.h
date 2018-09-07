@@ -60,7 +60,10 @@ struct dispatcher_shared_generic {
 
     uint64_t    systime_frequency;              ///< Systime frequency
     coreid_t    curr_core_id;                   ///< Core id of current core, in this part so kernel can update
+
     groupid_t   group_id;                       ///< Group id of this dispatcher
+    size_t      group_core_count;               ///< Core count in group
+    bool        group_core_mask[MAX_CORE];                ///< Core mask in group
 #ifdef __k1om__
     uint8_t     xeon_phi_id;
 #endif

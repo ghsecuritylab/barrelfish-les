@@ -50,7 +50,6 @@ static struct dcb *schedule_member_core(void)
     do {
         char* name = get_dispatcher_shared_generic(step->disp)->name;
         if (!strcmp(name, "xmpl-group-test")) {
-            printf("FOUND %s", name);
             break;
         }
         step = step->next;

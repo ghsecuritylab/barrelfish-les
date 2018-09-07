@@ -65,6 +65,8 @@ uint64_t disp_run_counter(void)
 {
     return run_counter;
 }
+
+spinlock_t upcall_lock;
 /**
  * \brief Run entry point
  *
@@ -75,6 +77,7 @@ uint64_t disp_run_counter(void)
  */
 void disp_run(dispatcher_handle_t handle)
 {
+    spinlock_acquire(&upcall_lock);
 #ifdef __x86_64__
     struct dispatcher_x86_64 *disp_priv = get_dispatcher_x86_64(handle);
     /* load compatibility dispatcher segment to FS */
@@ -85,9 +88,12 @@ void disp_run(dispatcher_handle_t handle)
     // We can't call printf(), so do this silly thing...
 //    assert_print("FIXME: infinite while loop\n");
 //    while(1);
+
+    // TODO: Leader core需要检查哪些core已经detach出这个group，leader core应该负责清理，
+    // 把退出Group的Core运行的线程的寄存器信息保存到寄存器结构体中
+
     if (!dispatcher_is_leader_core(handle)) {
-        assert_print("FIXME: infinite while loop\n");
-        while(1);
+        thread_run_disabled(handle);
     }
 
     struct dispatcher_generic* disp_gen = get_dispatcher_generic(handle);

@@ -257,6 +257,11 @@ static void thread_init(dispatcher_handle_t disp, struct thread *newthread)
     newthread->rpc_in_progress = false;
     newthread->async_error = SYS_ERR_OK;
     newthread->local_trigger = NULL;
+
+    // 只允许leader core运行
+    for (int i = 0; i < MAX_CORE; i++) {
+        newthread->affinity[i] = (dispatcher_get_group_id(disp) == i);
+    }
 }
 
 /**
@@ -289,6 +294,29 @@ static bool thread_check_stack_bounds(struct thread *thread,
            sp <= (lvaddr_t)thread->stack_top;
 }
 
+extern spinlock_t upcall_lock;
+
+static struct thread* thread_schedule(struct dispatcher_generic* disp_gen, struct thread *begin, struct thread *end)
+{
+    do {
+        bool flag = false;
+        // check this thread not running on other core
+        for (int i = 0; i < MAX_CORE; i++)
+        {
+            if (i != get_core_id() && disp_gen->dispatcher_per_core_state[i].current == begin) {
+                flag = true;
+                break;
+            }
+        }
+        if (!flag && begin->affinity[get_core_id()]) {
+            return begin;
+        } else {
+            begin = begin->next;
+        }
+    } while (begin != end);
+    return NULL;
+}
+
 /**
  * \brief Schedule and run the next active thread, or yield the dispatcher.
  *
@@ -313,6 +341,10 @@ void thread_run_disabled(dispatcher_handle_t handle)
                       thread_check_stack_bounds(CURRENT_THREAD_OF_DISP(disp_gen), enabled_area));
 
         struct thread *next = CURRENT_THREAD_OF_DISP(disp_gen)->next;
+        next = thread_schedule(disp_gen, next, CURRENT_THREAD_OF_DISP(disp_gen));
+        if (!next) {
+            next = CURRENT_THREAD_OF_DISP(disp_gen);
+        }
         assert_disabled(next != NULL);
         if (next != CURRENT_THREAD_OF_DISP(disp_gen)) {
             fpu_context_switch(disp_gen, next);
@@ -321,20 +353,34 @@ void thread_run_disabled(dispatcher_handle_t handle)
             arch_registers_state_t *cur_regs = &CURRENT_THREAD_OF_DISP(disp_gen)->regs;
             memcpy(cur_regs, enabled_area, sizeof(arch_registers_state_t));
             CURRENT_THREAD_OF_DISP(disp_gen) = next;
+            spinlock_release(&upcall_lock);
             disp_resume(handle, &next->regs);
         } else {
             // same thread as before
+            spinlock_release(&upcall_lock);
             disp_resume(handle, enabled_area);
         }
     } else if (disp_gen->runq != NULL) {
         fpu_context_switch(disp_gen, disp_gen->runq);
-        CURRENT_THREAD_OF_DISP(disp_gen) = disp_gen->runq;
-        disp->haswork = true;
-        disp_resume(handle, &disp_gen->runq->regs);
+        struct thread *next = thread_schedule(disp_gen, disp_gen->runq, disp_gen->runq);
+        if (!next) {
+            // no work to do
+            spinlock_release(&upcall_lock);
+            sys_yield(CPTR_NULL);
+            const char* str = "dispatcher PANIC: sys_yield returned";
+            sys_print(str, strlen(str));
+            while (1);
+        } else {
+            disp->haswork = true;
+            CURRENT_THREAD_OF_DISP(disp_gen) = disp_gen->runq;
+            spinlock_release(&upcall_lock);
+            disp_resume(handle, &disp_gen->runq->regs);
+        }
     } else {
         // kernel gave us the CPU when we have nothing to do. block!
         disp->haswork = havework_disabled(handle);
         CURRENT_THREAD_OF_DISP(disp_gen) = NULL;
+        spinlock_release(&upcall_lock);
         disp_yield_disabled(handle);
     }
 }
@@ -495,6 +541,17 @@ struct thread *thread_create_varstack(thread_func_t start_func, void *arg,
 struct thread *thread_create(thread_func_t start_func, void *arg)
 {
     return thread_create_varstack(start_func, arg, THREADS_DEFAULT_STACK_BYTES);
+}
+
+void thread_set_affinity(struct thread* thread, uint64_t affinities)
+{
+    for (int i = 0; i < MAX_CORE; i++) {
+        if ((affinities & (1 << i)) == 0) {
+            thread->affinity[i] = 0;
+        } else {
+            thread->affinity[i] = 1;
+        }
+    }
 }
 
 /**

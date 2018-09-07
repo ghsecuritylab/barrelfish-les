@@ -42,6 +42,7 @@ struct thread *thread_self(void);
 struct thread *thread_self_disabled(void);
 errval_t thread_join(struct thread *thread, int *retval);
 errval_t thread_detach(struct thread *thread);
+void thread_set_affinity(struct thread* thread, uint64_t affinities);
 
 void thread_pause(struct thread *thread);
 void thread_pause_and_capture_state(struct thread *thread,

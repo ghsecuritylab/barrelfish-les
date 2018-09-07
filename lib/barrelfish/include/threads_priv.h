@@ -82,6 +82,9 @@ struct thread {
     errval_t    async_error;                ///< RPC async error
     uint32_t    outgoing_token;             ///< Token of outgoing message
     struct waitset_chanstate *local_trigger; ///< Trigger for a local thread event
+
+    bool                affinity[MAX_CORE]; ///< Which cores this thread can run on
+    int                 last_running_on;    ///< Which core this thread's state is saved on
 };
 
 void thread_enqueue(struct thread *thread, struct thread **queue);

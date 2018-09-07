@@ -170,6 +170,8 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
     if(disp != NULL) {
         disp->systime = systime_now() + kcb_current->kernel_off;
         disp->group_id = get_cur_group()->group_id;
+        disp->group_core_count = get_cur_group()->core_count;
+        memcpy(disp->group_core_mask, get_cur_group()->core_mask, sizeof(get_cur_group()->core_mask));
     }
     TRACE(KERNEL, SC_YIELD, 1);
 

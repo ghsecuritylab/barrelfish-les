@@ -56,19 +56,19 @@ struct group* get_cur_group_by_coreid(coreid_t coreid)
 struct group* get_cur_group(void)
 {
     coreid_t id = get_core_id();
-    struct group** target = &global_group_mgmt->lazy_load_target_group[id];
-    if (*target && !global_group_mgmt->can_update[id]) {
-        printf("cannot update yet\n");
-    }
-    if (global_group_mgmt->can_update[id] && *target) {
-        while (1);
-        struct group* to = *target;
-        *target = NULL;
-        printf("updating\n");
-        set_cur_group_by_coreid(id, to);
-        while(1);
-    }
     return get_cur_group_by_coreid(id);
+}
+
+static void group_add_core(struct group* g, coreid_t core)
+{
+    g->core_count++;
+    g->core_mask[core] = 1;
+}
+
+static void group_remove_core(struct group* g, coreid_t core)
+{
+    g->core_count--;
+    g->core_mask[core] = 0;
 }
 
 void set_cur_group_lazy(struct group* g)
@@ -82,6 +82,8 @@ void set_cur_group_lazy(struct group* g)
     // prepare per core state in target group
     g->per_core_state[get_core_id()].dcb_current = GROUP_PER_CORE_DCB_CURRENT;
     g->per_core_state[get_core_id()].kcb_current = NULL;
+    group_add_core(g, get_core_id());
+    group_remove_core(g, get_core_id());
 }
 
 static void group_init_common(void)
@@ -91,6 +93,7 @@ static void group_init_common(void)
     cur->enabled = true;
     cur->got_base = set_got_base_lazy(get_got_base());
     cur->group_id = coreid;
+    group_add_core(cur, get_core_id());
     if (arch_core_is_bsp()) {
         cur->lock = (volatile int*)bsp_alloc_phys_aligned(4, 4);
     } else {

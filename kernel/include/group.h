@@ -25,6 +25,8 @@ struct group {
     bool enabled;
     groupid_t group_id;
     lvaddr_t got_base;
+    size_t core_count;
+    bool core_mask[MAX_CORE];
     struct group_per_core_state per_core_state[MAX_CORE];
     volatile int* lock;
 };
