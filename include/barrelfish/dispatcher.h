@@ -108,12 +108,13 @@ struct dispatcher_generic {
 
 };
 
-static struct thread** get_current_thread(dispatcher_handle_t handler) 
+static inline struct thread** get_current_thread(struct dispatcher_generic *handler, coreid_t coreid) 
 {
-    return &get_dispatcher_generic(handler)->dispatcher_per_core_state[get_core_id()].current;
+    return &(handler->dispatcher_per_core_state[coreid].current);
 }
 
-#define CURRENT_THREAD (*get_current_thread(curdispatcher()))
-#define CURRENT_THREAD_OF_DISP(h) (*get_current_thread(h))
+#define CURRENT_THREAD_OF_DISP_CORE(h, c) (*get_current_thread(h, c))
+#define CURRENT_THREAD_OF_DISP(h) (*get_current_thread(h, get_core_id()))
+#define CURRENT_THREAD (*get_current_thread(curdispatcher(), get_core_id()))
 
 #endif // BARRELFISH_DISPATCHER_H

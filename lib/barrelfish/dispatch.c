@@ -347,12 +347,12 @@ void disp_pagefault(dispatcher_handle_t handle, lvaddr_t fault_address,
     assert_disabled(ip == registers_get_ip(regs));
 
     // sanity-check that we were on a thread
-    assert_disabled(disp_gen->current != NULL);
+    assert_disabled(CURRENT_THREAD_OF_DISP(disp_gen) != NULL);
 
     // Save FPU context if used
 #ifdef FPU_LAZY_CONTEXT_SWITCH
-    if (disp_gen->fpu_thread == disp_gen->current) {
-        fpu_copy(&disp_gen->current->fpu_state,
+    if (disp_gen->fpu_thread == CURRENT_THREAD_OF_DISP(disp_gen)) {
+        fpu_copy(&CURRENT_THREAD_OF_DISP(disp_gen)->fpu_state,
                  dispatcher_get_enabled_fpu_save_area(handle));
     }
 #endif
@@ -544,7 +544,7 @@ void disp_trap(dispatcher_handle_t handle, uintptr_t irq, uintptr_t error,
     struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
 
     // Must've happened on a thread
-    struct thread *t = disp_gen->current;
+    struct thread *t = CURRENT_THREAD_OF_DISP(disp_gen);
     assert_disabled(t != NULL);
 
 #ifdef FPU_LAZY_CONTEXT_SWITCH

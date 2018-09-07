@@ -189,7 +189,7 @@ void thread_mutex_lock(struct thread_mutex *mutex)
                                                    &mutex->lock);
     } else {
         mutex->locked = 1;
-        mutex->holder = disp_gen->current;
+        mutex->holder = CURRENT_THREAD_OF_DISP(disp_gen);
         release_spinlock(&mutex->lock);
         disp_enable(handle);
     }
@@ -215,12 +215,12 @@ void thread_mutex_lock_nested(struct thread_mutex *mutex)
 
     acquire_spinlock(&mutex->lock);
     if (mutex->locked > 0
-        && mutex->holder != disp_gen->current) {
+        && mutex->holder != CURRENT_THREAD_OF_DISP(disp_gen)) {
         thread_block_and_release_spinlock_disabled(handle, &mutex->queue,
                                                    &mutex->lock);
     } else {
         mutex->locked++;
-        mutex->holder = disp_gen->current;
+        mutex->holder = CURRENT_THREAD_OF_DISP(disp_gen);
         release_spinlock(&mutex->lock);
         disp_enable(handle);
     }
@@ -259,7 +259,7 @@ bool thread_mutex_trylock(struct thread_mutex *mutex)
     } else {
         ret = true;
         mutex->locked = 1;
-        mutex->holder = disp_gen->current;
+        mutex->holder = CURRENT_THREAD_OF_DISP(disp_gen);
     }
     release_spinlock(&mutex->lock);
 

@@ -932,10 +932,10 @@ errval_t domain_thread_move_to(struct thread *thread, coreid_t core_id)
 
     // run the next thread, if any
     if (next != thread) {
-        disp_gen->current = next;
+        CURRENT_THREAD_OF_DISP(disp_gen) = next;
         disp_resume(mydisp, &next->regs);
     } else {
-        disp_gen->current = NULL;
+        CURRENT_THREAD_OF_DISP(disp_gen) = NULL;
         disp->haswork = havework_disabled(mydisp);
         disp_yield_disabled(mydisp);
     }
