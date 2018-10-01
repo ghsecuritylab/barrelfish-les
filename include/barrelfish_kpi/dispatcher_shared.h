@@ -64,6 +64,8 @@ struct dispatcher_shared_generic {
     groupid_t   group_id;                       ///< Group id of this dispatcher
     size_t      group_core_count;               ///< Core count in group
     bool        group_core_mask[MAX_CORE];                ///< Core mask in group
+
+    uint32_t    disabled_locked;
 #ifdef __k1om__
     uint8_t     xeon_phi_id;
 #endif
@@ -87,8 +89,9 @@ static inline uint32_t dispatcher_get_disabled_by_coreid(dispatcher_handle_t han
 
 static inline void dispatcher_set_disabled_by_coreid(dispatcher_handle_t handle, coreid_t coreid, uint32_t disabled)
 {
+    struct dispatcher_shared_generic *disp = (struct dispatcher_shared_generic *)handle;
     disabled = (disabled != 0);
-    ((struct dispatcher_shared_generic *)handle)->disabled_all[coreid] = disabled;
+    disp->disabled_all[coreid] = disabled;
 }
 
 static inline void dispatcher_try_set_disabled_by_coreid(dispatcher_handle_t handle, coreid_t coreid, uint32_t disabled, bool* was_enabled)

@@ -127,6 +127,8 @@ static void check_queue(struct thread *queue)
 static inline void check_queue(struct thread *queue) {}
 #endif
 
+spinlock_t runq_lock;
+
 /**
  * \brief Enqueue a thread in the given queue
  *
@@ -134,6 +136,7 @@ static inline void check_queue(struct thread *queue) {}
  */
 void thread_enqueue(struct thread *thread, struct thread **queue)
 {
+    spinlock_acquire(&runq_lock);
     assert_disabled(thread != NULL);
     assert_disabled(queue != NULL);
     check_queue(*queue);
@@ -149,6 +152,7 @@ void thread_enqueue(struct thread *thread, struct thread **queue)
     }
 
     check_queue(*queue);
+    spinlock_release(&runq_lock);
 }
 
 /**
@@ -160,6 +164,8 @@ void thread_enqueue(struct thread *thread, struct thread **queue)
  */
 struct thread *thread_dequeue(struct thread **queue)
 {
+    spinlock_acquire(&runq_lock);
+
     assert_disabled(queue != NULL);
     struct thread *thread = *queue;
     assert_disabled(thread != NULL);
@@ -176,6 +182,7 @@ struct thread *thread_dequeue(struct thread **queue)
 #ifndef NDEBUG
     thread->prev = thread->next = NULL;
 #endif
+    spinlock_release(&runq_lock);
     return thread;
 }
 
@@ -187,6 +194,7 @@ struct thread *thread_dequeue(struct thread **queue)
  */
 void thread_remove_from_queue(struct thread **queue, struct thread *thread)
 {
+    spinlock_acquire(&runq_lock);
     assert_disabled(queue != NULL);
     assert_disabled(thread != NULL);
     check_queue(*queue);
@@ -205,6 +213,7 @@ void thread_remove_from_queue(struct thread **queue, struct thread *thread)
 #ifndef NDEBUG
     thread->prev = thread->next = NULL;
 #endif
+    spinlock_release(&runq_lock);
 }
 
 /// Refill backing storage for thread region
@@ -259,9 +268,7 @@ static void thread_init(dispatcher_handle_t disp, struct thread *newthread)
     newthread->local_trigger = NULL;
 
     // 只允许leader core运行
-    for (int i = 0; i < MAX_CORE; i++) {
-        newthread->affinity[i] = (dispatcher_get_group_id(disp) == i);
-    }
+    newthread->affinity = 1 << dispatcher_get_group_id(disp);
 }
 
 /**
@@ -294,11 +301,19 @@ static bool thread_check_stack_bounds(struct thread *thread,
            sp <= (lvaddr_t)thread->stack_top;
 }
 
-extern spinlock_t upcall_lock;
 
 static struct thread* thread_schedule(struct dispatcher_generic* disp_gen, struct thread *begin, struct thread *end)
 {
+
+    if (!begin) {
+        return NULL;
+    }
     do {
+        assert_disabled(begin);
+        if ((begin->affinity & (1 << get_core_id())) == 0) {
+            begin = begin->next;
+            continue;
+        }
         bool flag = false;
         // check this thread not running on other core
         for (int i = 0; i < MAX_CORE; i++)
@@ -308,7 +323,7 @@ static struct thread* thread_schedule(struct dispatcher_generic* disp_gen, struc
                 break;
             }
         }
-        if (!flag && begin->affinity[get_core_id()]) {
+        if (!flag) {
             return begin;
         } else {
             begin = begin->next;
@@ -345,6 +360,7 @@ void thread_run_disabled(dispatcher_handle_t handle)
         if (!next) {
             next = CURRENT_THREAD_OF_DISP(disp_gen);
         }
+
         assert_disabled(next != NULL);
         if (next != CURRENT_THREAD_OF_DISP(disp_gen)) {
             fpu_context_switch(disp_gen, next);
@@ -353,11 +369,11 @@ void thread_run_disabled(dispatcher_handle_t handle)
             arch_registers_state_t *cur_regs = &CURRENT_THREAD_OF_DISP(disp_gen)->regs;
             memcpy(cur_regs, enabled_area, sizeof(arch_registers_state_t));
             CURRENT_THREAD_OF_DISP(disp_gen) = next;
-            spinlock_release(&upcall_lock);
+            unlock_disp(handle);
             disp_resume(handle, &next->regs);
         } else {
             // same thread as before
-            spinlock_release(&upcall_lock);
+            unlock_disp(handle);
             disp_resume(handle, enabled_area);
         }
     } else if (disp_gen->runq != NULL) {
@@ -365,22 +381,22 @@ void thread_run_disabled(dispatcher_handle_t handle)
         struct thread *next = thread_schedule(disp_gen, disp_gen->runq, disp_gen->runq);
         if (!next) {
             // no work to do
-            spinlock_release(&upcall_lock);
+            unlock_disp(handle);
             sys_yield(CPTR_NULL);
             const char* str = "dispatcher PANIC: sys_yield returned";
             sys_print(str, strlen(str));
             while (1);
         } else {
             disp->haswork = true;
-            CURRENT_THREAD_OF_DISP(disp_gen) = disp_gen->runq;
-            spinlock_release(&upcall_lock);
-            disp_resume(handle, &disp_gen->runq->regs);
+            CURRENT_THREAD_OF_DISP(disp_gen) = next;
+            unlock_disp(handle);
+            disp_resume(handle, &next->regs);
         }
     } else {
         // kernel gave us the CPU when we have nothing to do. block!
         disp->haswork = havework_disabled(handle);
         CURRENT_THREAD_OF_DISP(disp_gen) = NULL;
-        spinlock_release(&upcall_lock);
+        unlock_disp(handle);
         disp_yield_disabled(handle);
     }
 }
@@ -545,13 +561,12 @@ struct thread *thread_create(thread_func_t start_func, void *arg)
 
 void thread_set_affinity(struct thread* thread, uint64_t affinities)
 {
-    for (int i = 0; i < MAX_CORE; i++) {
-        if ((affinities & (1 << i)) == 0) {
-            thread->affinity[i] = 0;
-        } else {
-            thread->affinity[i] = 1;
-        }
-    }
+    thread->affinity = affinities;
+}
+
+uint64_t thread_get_affinity(struct thread* thread)
+{
+    return thread->affinity;
 }
 
 /**
@@ -1035,8 +1050,14 @@ void *thread_block_and_release_spinlock_disabled(dispatcher_handle_t handle,
         get_dispatcher_shared_generic(handle);
     struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
     struct thread *me = CURRENT_THREAD_OF_DISP(disp_gen);
+
+    // being here another core could has been attached and affinities have been set
+    assert_disabled(me != NULL);
     struct thread *next = me->next;
-    assert_disabled(next != NULL);
+    next = thread_schedule(disp_gen, next, CURRENT_THREAD_OF_DISP(disp_gen));
+    if (!next) {
+        next = CURRENT_THREAD_OF_DISP(disp_gen);
+    }
 
     assert_disabled(me->state == THREAD_STATE_RUNNABLE);
     me->state = THREAD_STATE_BLOCKED;
@@ -1050,10 +1071,21 @@ void *thread_block_and_release_spinlock_disabled(dispatcher_handle_t handle,
         release_spinlock(spinlock);
     }
 
+    if (strcmp(disp_name(), "xmpl-group-test") == 0) {
+        printf("Rabbit is blocked, mythread: 0x%x, next id : 0x%x\n", me, next);
+    }
+
+    unlock_disp(handle);
+
     if (next != me) {
         assert_disabled(disp_gen->runq != NULL);
         fpu_context_switch(disp_gen, next);
         CURRENT_THREAD_OF_DISP(disp_gen) = next;
+        if (strcmp(disp_name(), "xmpl-group-test") == 0)
+        {
+            printf("Rabbit is blocked, mythread: 0x%x, next id : 0x%x, current is: 0x%x, current2: 0x%x, entry: 0x%x\n", me, next, CURRENT_THREAD_OF_DISP(disp_gen), CURRENT_THREAD, CURRENT_THREAD->regs.named.pc);
+            printf("start_func is %x, core is %d\n", CURRENT_THREAD->regs.named.r0, get_core_id());
+        }
         disp_switch(handle, &me->regs, &next->regs);
     } else {
         assert_disabled(disp_gen->runq == NULL);

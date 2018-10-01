@@ -83,7 +83,7 @@ struct thread {
     uint32_t    outgoing_token;             ///< Token of outgoing message
     struct waitset_chanstate *local_trigger; ///< Trigger for a local thread event
 
-    bool                affinity[MAX_CORE]; ///< Which cores this thread can run on
+    uint64_t            affinity; ///< Which cores this thread can run on
     int                 last_running_on;    ///< Which core this thread's state is saved on
 };
 

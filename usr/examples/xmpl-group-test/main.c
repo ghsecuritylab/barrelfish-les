@@ -25,7 +25,7 @@ static void attach_test(void) {
 
 static int test_thread(void* args) {
     while (1) {
-        printf("thread %d\n", get_core_id());
+        printf("thread %d %d\n", get_core_id(), (int)args);
         for (int i = 0; i < 9000000 * 5; i++);
     }
     return 0;
@@ -33,10 +33,24 @@ static int test_thread(void* args) {
 
 int main(int argc, char *argv[])
 {
-    struct thread* a = thread_create(test_thread, NULL);
-    struct thread* b = thread_create(test_thread, NULL);
+    struct thread *a = thread_create(test_thread, (void *)10);
+    struct thread *b = thread_create(test_thread, (void *)20);
+
+    dispatcher_handle_t handle = curdispatcher();
+    printf("handle is %x, core id: %d\n", handle, get_core_id());
+    struct thread *me = CURRENT_THREAD;
+    if (me)
+    {
+        printf("origin thread affinity %llx\n", thread_get_affinity(me));
+    }
+    else
+    {
+        printf("CURRENT_THREAD is empty\n");
+    }
     thread_set_affinity(a, 1 << target_core);
+    printf("thread affinity set\n");
     attach_test();
+
     thread_join(a, NULL);
     thread_join(b, NULL);
     return 0;

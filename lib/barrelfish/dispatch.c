@@ -66,7 +66,6 @@ uint64_t disp_run_counter(void)
     return run_counter;
 }
 
-spinlock_t upcall_lock;
 /**
  * \brief Run entry point
  *
@@ -77,7 +76,7 @@ spinlock_t upcall_lock;
  */
 void disp_run(dispatcher_handle_t handle)
 {
-    spinlock_acquire(&upcall_lock);
+    lock_disp(handle);
 #ifdef __x86_64__
     struct dispatcher_x86_64 *disp_priv = get_dispatcher_x86_64(handle);
     /* load compatibility dispatcher segment to FS */
@@ -91,9 +90,10 @@ void disp_run(dispatcher_handle_t handle)
 
     // TODO: Leader core需要检查哪些core已经detach出这个group，leader core应该负责清理，
     // 把退出Group的Core运行的线程的寄存器信息保存到寄存器结构体中
-
     if (!dispatcher_is_leader_core(handle)) {
         thread_run_disabled(handle);
+        assert_disabled(!"disp_run in member core: thread_run() returned!\n");
+        for (;;);
     }
 
     struct dispatcher_generic* disp_gen = get_dispatcher_generic(handle);
@@ -221,6 +221,12 @@ void disp_yield_disabled(dispatcher_handle_t handle)
     assert_print("dispatcher PANIC: sys_yield returned");
     for (;;);
 }
+
+// static int switch_to_leader_core(void)
+// {
+//     uint64_t affinity = thread_get_affinity();
+//     for (int i = 0; i < 100;);
+// } 
 
 /**
  * \brief Disable the dispatcher

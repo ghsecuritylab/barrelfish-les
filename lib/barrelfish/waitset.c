@@ -34,9 +34,12 @@
 #  include <barrelfish/ump_endpoint.h>
 #endif
 
+extern spinlock_t runq_lock;
+
 /// Dequeue a chanstate from a queue
 static void dequeue(struct waitset_chanstate **queue, struct waitset_chanstate *chan)
 {
+    spinlock_acquire(&runq_lock);
     if (chan->next == chan) {
         assert(chan->prev == chan);
         assert(*queue == chan);
@@ -49,11 +52,13 @@ static void dequeue(struct waitset_chanstate **queue, struct waitset_chanstate *
         }
     }
     chan->prev = chan->next = NULL;
+    spinlock_release(&runq_lock);
 }
 
 /// Enqueue a chanstate on a queue
 static void enqueue(struct waitset_chanstate **queue, struct waitset_chanstate *chan)
 {
+    spinlock_acquire(&runq_lock);
     if (*queue == NULL) {
         *queue = chan;
         chan->next = chan->prev = chan;
@@ -63,12 +68,14 @@ static void enqueue(struct waitset_chanstate **queue, struct waitset_chanstate *
         chan->next->prev = chan;
         chan->prev->next = chan;
     }
+    spinlock_release(&runq_lock);
 }
 
 /// Dequeue a chanstate from polled queue
 static void dequeue_polled(struct waitset_chanstate **queue,
                             struct waitset_chanstate *chan)
 {
+    spinlock_acquire(&runq_lock);
     if (chan->polled_next == chan) {
         assert(chan->polled_prev == chan);
         assert(*queue == chan);
@@ -81,12 +88,14 @@ static void dequeue_polled(struct waitset_chanstate **queue,
         }
     }
     chan->polled_prev = chan->polled_next = NULL;
+    spinlock_release(&runq_lock);
 }
 
 /// Enqueue a chanstate on polled queue
 static void enqueue_polled(struct waitset_chanstate **queue,
                             struct waitset_chanstate *chan)
 {
+    spinlock_acquire(&runq_lock);
     if (*queue == NULL) {
         *queue = chan;
         chan->polled_next = chan->polled_prev = chan;
@@ -96,6 +105,7 @@ static void enqueue_polled(struct waitset_chanstate **queue,
         chan->polled_next->polled_prev = chan;
         chan->polled_prev->polled_next = chan;
     }
+    spinlock_release(&runq_lock);
 }
 
 /**
@@ -332,6 +342,7 @@ static void wake_up_other_thread(dispatcher_handle_t handle, struct waitset *ws)
  * \param debug Debug mode (not used)
  */
 
+// this function may cause data race before our delegation machanism available
 errval_t get_next_event_disabled(struct waitset *ws,
     struct waitset_chanstate **retchannel, struct event_closure *retclosure,
     struct waitset_chanstate *waitfor, struct waitset_chanstate *waitfor2,
@@ -340,6 +351,7 @@ errval_t get_next_event_disabled(struct waitset *ws,
     struct waitset_chanstate * chan;
 
 // debug_printf("%s: %p %p %p %p\n", __func__, __builtin_return_address(0), __builtin_return_address(1), __builtin_return_address(2), __builtin_return_address(3));
+    lock_disp(handle);
     for (;;) {
         chan = get_pending_event_disabled(ws, waitfor, waitfor2); // get our event
         if (chan) {
@@ -354,11 +366,13 @@ errval_t get_next_event_disabled(struct waitset *ws,
             }
             wake_up_other_thread(handle, ws);
     // debug_printf("%s.%d: %p\n", __func__, __LINE__, retclosure->handler);
+            unlock_disp(handle);
             return SYS_ERR_OK;
         }
         chan = ws->pending; // check a pending queue
         if (!chan) { // if nothing then wait
             thread_block_disabled(handle, &ws->waiting_threads);
+            lock_disp(handle);
             disp_disable();
         } else { // something but it's not our event
             if (!ws->waiting_threads) { // no other thread interested in
@@ -389,6 +403,7 @@ errval_t get_next_event_disabled(struct waitset *ws,
             }
         }
     }
+    unlock_disp(handle);
 }
 
 /**

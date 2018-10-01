@@ -106,6 +106,7 @@ struct dispatcher_generic {
     struct capref recv_slots[MAX_RECV_SLOTS];///< Queued cap recv slots
     int8_t recv_slot_count;                 ///< number of currently queued recv slots
 
+    spinlock_t disp_lock;
 };
 
 static inline struct thread** get_current_thread(struct dispatcher_generic *handler, coreid_t coreid) 
@@ -113,8 +114,20 @@ static inline struct thread** get_current_thread(struct dispatcher_generic *hand
     return &(handler->dispatcher_per_core_state[coreid].current);
 }
 
+static inline void lock_disp(dispatcher_handle_t handle)
+{
+    struct dispatcher_generic *disp_gen = (struct dispatcher_generic*)handle;
+    spinlock_acquire(&disp_gen->disp_lock);
+}
+
+static inline void unlock_disp(dispatcher_handle_t handle)
+{
+    struct dispatcher_generic *disp_gen = (struct dispatcher_generic*)handle;
+    spinlock_release(&disp_gen->disp_lock);
+}
+
 #define CURRENT_THREAD_OF_DISP_CORE(h, c) (*get_current_thread(h, c))
 #define CURRENT_THREAD_OF_DISP(h) (*get_current_thread(h, get_core_id()))
-#define CURRENT_THREAD (*get_current_thread(curdispatcher(), get_core_id()))
+#define CURRENT_THREAD (*get_current_thread(get_dispatcher_generic(curdispatcher()), get_core_id()))
 
 #endif // BARRELFISH_DISPATCHER_H
