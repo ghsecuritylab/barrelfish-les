@@ -114,17 +114,8 @@ static inline struct thread** get_current_thread(struct dispatcher_generic *hand
     return &(handler->dispatcher_per_core_state[coreid].current);
 }
 
-static inline void lock_disp(dispatcher_handle_t handle)
-{
-    struct dispatcher_generic *disp_gen = (struct dispatcher_generic*)handle;
-    spinlock_acquire(&disp_gen->disp_lock);
-}
-
-static inline void unlock_disp(dispatcher_handle_t handle)
-{
-    struct dispatcher_generic *disp_gen = (struct dispatcher_generic*)handle;
-    spinlock_release(&disp_gen->disp_lock);
-}
+void lock_disp(dispatcher_handle_t handle);
+void unlock_disp(dispatcher_handle_t handle);
 
 #define CURRENT_THREAD_OF_DISP_CORE(h, c) (*get_current_thread(h, c))
 #define CURRENT_THREAD_OF_DISP(h) (*get_current_thread(h, get_core_id()))

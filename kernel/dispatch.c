@@ -127,7 +127,6 @@ fpu_lazy_bottom(struct dcb *dcb) {
 #define TRACE_N_BM 1
 #endif // CONFIG_TRACE && NETWORK_STACK_BENCHMARK
 
-
 void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
 {
 #ifdef FPU_LAZY_CONTEXT_SWITCH

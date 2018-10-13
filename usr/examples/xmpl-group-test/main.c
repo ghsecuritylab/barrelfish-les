@@ -7,26 +7,53 @@
 #include <barrelfish/nameservice_client.h>
 
 const int target_core = 2;
-
+bool attach_complete;
 static void attach_reply(struct monitor_binding *b, coreid_t succ_core) {
     printf("Coreid %hhu attached\n", succ_core);
+    attach_complete = true;
 }
 
-static void attach_test(void) {
+static void attach_test(int target) {
     struct monitor_binding *mb = get_monitor_binding();
  
     mb->rx_vtbl.attach_group_reply = attach_reply;
 
-    monitor_attach_group_request__tx(mb, NOP_CONT, target_core, get_core_id());
+    attach_complete = false;
+    monitor_attach_group_request__tx(mb, NOP_CONT, target, get_core_id());
     while (1) {
         messages_wait_and_handle_next();
+        if (attach_complete) {
+            break;
+        }
     }
 }
 
 static int test_thread(void* args) {
-    while (1) {
+    int count = 5;
+    if ((int)args == 10) {
+        printf("Waiting to be scheduled by core 2\n");
+        int c = 0;
+        while (get_core_id() != 2) {
+            c++;
+            if (c % 9000000 * 5 == 0) {
+                printf("waiting circle %d\n", c);
+            }
+        }
+    }
+    while (count--) {
         printf("thread %d %d\n", get_core_id(), (int)args);
         for (int i = 0; i < 9000000 * 5; i++);
+        if ((int)args == 10) {
+            if (count == 3) {
+                disp_disable();
+                while (count--) {
+                    printf("thread %d %d\n", get_core_id(), (int)args);
+                    for (int i = 0; i < 9000000 * 5; i++);
+                }
+                while(1);
+                disp_enable(curdispatcher());
+            }
+        }
     }
     return 0;
 }
@@ -36,22 +63,20 @@ int main(int argc, char *argv[])
     struct thread *a = thread_create(test_thread, (void *)10);
     struct thread *b = thread_create(test_thread, (void *)20);
 
-    dispatcher_handle_t handle = curdispatcher();
-    printf("handle is %x, core id: %d\n", handle, get_core_id());
-    struct thread *me = CURRENT_THREAD;
-    if (me)
-    {
-        printf("origin thread affinity %llx\n", thread_get_affinity(me));
-    }
-    else
-    {
-        printf("CURRENT_THREAD is empty\n");
-    }
-    thread_set_affinity(a, 1 << target_core);
-    printf("thread affinity set\n");
-    attach_test();
+    int target = 2;
+
+    thread_set_affinity(a, 1 << target);
+    attach_test(target);
 
     thread_join(a, NULL);
     thread_join(b, NULL);
+
+    printf("thread join succ\n");
+
+    a = thread_create(test_thread, (void *)30);
+    b = thread_create(test_thread, (void *)40);
+    thread_join(a, NULL);
+    thread_join(b, NULL);
+
     return 0;
 }

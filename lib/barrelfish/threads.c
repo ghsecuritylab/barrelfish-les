@@ -348,8 +348,18 @@ void thread_run_disabled(dispatcher_handle_t handle)
     arch_registers_state_t *enabled_area =
         dispatcher_get_enabled_save_area(handle);
 
+    static int state = 0;
+
+    if (state == 1 && get_core_id() == 0 && strcmp("xmpl-group-test", disp_name()) == 0) {
+        printf("After migrate .... core 0 got here\n");
+    }
+
     if (CURRENT_THREAD_OF_DISP(disp_gen) != NULL) {
         assert_disabled(disp_gen->runq != NULL);
+
+        if (get_core_id() == 2 && state > 0) {
+            printf("HOW CAN WE BE HERE????\n");
+        }
 
         // check stack bounds
         warn_disabled(&stack_warned,
@@ -357,27 +367,25 @@ void thread_run_disabled(dispatcher_handle_t handle)
 
         struct thread *next = CURRENT_THREAD_OF_DISP(disp_gen)->next;
         next = thread_schedule(disp_gen, next, CURRENT_THREAD_OF_DISP(disp_gen));
-        if (!next) {
-            next = CURRENT_THREAD_OF_DISP(disp_gen);
-        }
 
-        assert_disabled(next != NULL);
         if (next != CURRENT_THREAD_OF_DISP(disp_gen)) {
             fpu_context_switch(disp_gen, next);
-
             // save previous thread's state
             arch_registers_state_t *cur_regs = &CURRENT_THREAD_OF_DISP(disp_gen)->regs;
             memcpy(cur_regs, enabled_area, sizeof(arch_registers_state_t));
             CURRENT_THREAD_OF_DISP(disp_gen) = next;
             unlock_disp(handle);
-            disp_resume(handle, &next->regs);
+            if (next) {
+                disp_resume(handle, &next->regs);
+            } else {
+                sys_yield(CPTR_NULL);
+            }
         } else {
             // same thread as before
             unlock_disp(handle);
             disp_resume(handle, enabled_area);
         }
     } else if (disp_gen->runq != NULL) {
-        fpu_context_switch(disp_gen, disp_gen->runq);
         struct thread *next = thread_schedule(disp_gen, disp_gen->runq, disp_gen->runq);
         if (!next) {
             // no work to do
@@ -388,6 +396,7 @@ void thread_run_disabled(dispatcher_handle_t handle)
             while (1);
         } else {
             disp->haswork = true;
+            fpu_context_switch(disp_gen, next);
             CURRENT_THREAD_OF_DISP(disp_gen) = next;
             unlock_disp(handle);
             disp_resume(handle, &next->regs);
@@ -561,7 +570,36 @@ struct thread *thread_create(thread_func_t start_func, void *arg)
 
 void thread_set_affinity(struct thread* thread, uint64_t affinities)
 {
-    thread->affinity = affinities;
+    dispatcher_handle_t handle = curdispatcher();
+    if (thread != CURRENT_THREAD) {
+        // don't need to migrate immediately
+        
+        // 如果在设置完affinity之后，生效之前，该core上只有这一个thread在runq上，会导致该thread一直
+        // 占用current_thread， 无法被切换
+        thread->affinity = affinities;
+        return;
+    } else {
+        bool is_disabled = dispatcher_get_disabled(handle);
+        if (!is_disabled)
+        {
+            // if not disabled, set disabled, do not use disp_disable
+            dispatcher_set_disabled(handle, 1);
+        }
+        thread->affinity = affinities;
+        if ((affinities & (1 << get_core_id())) == 0) {
+            // imigrate immediately, cannot run in this core.
+            struct thread *back = CURRENT_THREAD;
+            CURRENT_THREAD = NULL;
+
+            // if is not in leader core, transfer it to leader core;
+            disp_save(handle, &back->regs, true, CPTR_NULL);
+            assert_disabled((affinities & (1 << get_core_id())) != 0);
+            assert(!dispatcher_get_disabled(handle));
+        }
+
+        dispatcher_set_disabled(handle, is_disabled);
+        assert_disabled((affinities & (1 << get_core_id())) != 0);
+    }
 }
 
 uint64_t thread_get_affinity(struct thread* thread)
@@ -1088,7 +1126,6 @@ void *thread_block_and_release_spinlock_disabled(dispatcher_handle_t handle,
         }
         disp_switch(handle, &me->regs, &next->regs);
     } else {
-        assert_disabled(disp_gen->runq == NULL);
         CURRENT_THREAD_OF_DISP(disp_gen) = NULL;
         disp->haswork = havework_disabled(handle);
         trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_THREADS_C_DISP_SAVE, 2);

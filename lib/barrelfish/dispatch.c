@@ -155,6 +155,7 @@ void disp_lrpc(struct lmp_endpoint *ep, uint32_t bufpos,
                uintptr_t arg1, uintptr_t arg2, uintptr_t arg3, uintptr_t arg4,
                dispatcher_handle_t handle)
 {
+    assert_disabled(dispatcher_is_leader_core(handle));
     struct dispatcher_shared_generic* disp =
         get_dispatcher_shared_generic(handle);
 
@@ -165,6 +166,18 @@ void disp_lrpc(struct lmp_endpoint *ep, uint32_t bufpos,
     disp->lmp_hint = (lvaddr_t)&ep->k - (lvaddr_t)handle;
 
     disp_run(handle);
+}
+
+void lock_disp(dispatcher_handle_t handle)
+{
+    struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
+    spinlock_acquire(&disp_gen->disp_lock);
+}
+
+void unlock_disp(dispatcher_handle_t handle)
+{
+    struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
+    spinlock_release(&disp_gen->disp_lock);
 }
 
 /**
@@ -242,6 +255,23 @@ dispatcher_handle_t disp_disable(void)
     dispatcher_handle_t handle = curdispatcher();
     assert_disabled(dispatcher_get_disabled(handle) == 0);
     dispatcher_set_disabled(handle, 1);
+
+    CURRENT_THREAD->affinity_save = CURRENT_THREAD->affinity;
+
+    thread_set_affinity(CURRENT_THREAD, 1 << dispatcher_get_group_id(handle));
+
+    if (!dispatcher_is_leader_core(handle)) {
+        if (!CURRENT_THREAD) {
+            printf("CURRENT THREAD is empty? \n");           
+        } else
+            printf("not leader? affinity: %d, current core: %d, group: %d\n", (int)CURRENT_THREAD->affinity, (int)get_core_id(), (int)dispatcher_get_group_id(handle));
+    }
+    if (!dispatcher_get_disabled(handle)) {
+        printf("not disabled?, core: %d\n", (int)get_core_id());
+    }
+
+    assert_disabled(dispatcher_is_leader_core(handle));
+
     return handle;
 }
 
@@ -264,6 +294,11 @@ dispatcher_handle_t disp_try_disable(bool *was_enabled)
 #else
     dispatcher_try_set_disabled(handle, 1, was_enabled);
 #endif
+    if (*was_enabled) {
+        CURRENT_THREAD->affinity_save = CURRENT_THREAD->affinity;
+        thread_set_affinity(CURRENT_THREAD, 1 << dispatcher_get_group_id(handle));
+        assert_disabled(dispatcher_is_leader_core(handle));
+    }
     return handle;
 }
 
@@ -277,6 +312,11 @@ void disp_enable(dispatcher_handle_t handle)
 {
     assert_disabled(handle == curdispatcher());
     assert_disabled(dispatcher_get_disabled(handle));
+    if (CURRENT_THREAD->affinity_save) {
+        uint64_t save = CURRENT_THREAD->affinity_save;
+        CURRENT_THREAD->affinity_save = 0;
+        thread_set_affinity(CURRENT_THREAD, save);
+    }
     dispatcher_set_disabled(handle, 0);
 }
 

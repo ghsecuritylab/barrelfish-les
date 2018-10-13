@@ -625,7 +625,6 @@ struct sysret sys_yield(capaddr_t target)
     struct dispatcher_shared_generic *disp =
         get_dispatcher_shared_generic(handle);
 
-
     debug(SUBSYS_DISPATCH, "%.*s yields%s\n", DISP_NAME_LEN, disp->name,
           !disp->haswork && disp->lmp_delivered == disp->lmp_seen
            ? " and is removed from the runq" : "");
