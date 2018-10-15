@@ -1109,21 +1109,12 @@ void *thread_block_and_release_spinlock_disabled(dispatcher_handle_t handle,
         release_spinlock(spinlock);
     }
 
-    if (strcmp(disp_name(), "xmpl-group-test") == 0) {
-        printf("Rabbit is blocked, mythread: 0x%x, next id : 0x%x\n", me, next);
-    }
-
     unlock_disp(handle);
 
     if (next != me) {
         assert_disabled(disp_gen->runq != NULL);
         fpu_context_switch(disp_gen, next);
         CURRENT_THREAD_OF_DISP(disp_gen) = next;
-        if (strcmp(disp_name(), "xmpl-group-test") == 0)
-        {
-            printf("Rabbit is blocked, mythread: 0x%x, next id : 0x%x, current is: 0x%x, current2: 0x%x, entry: 0x%x\n", me, next, CURRENT_THREAD_OF_DISP(disp_gen), CURRENT_THREAD, CURRENT_THREAD->regs.named.pc);
-            printf("start_func is %x, core is %d\n", CURRENT_THREAD->regs.named.r0, get_core_id());
-        }
         disp_switch(handle, &me->regs, &next->regs);
     } else {
         CURRENT_THREAD_OF_DISP(disp_gen) = NULL;

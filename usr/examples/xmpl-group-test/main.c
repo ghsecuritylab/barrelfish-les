@@ -40,18 +40,18 @@ static int test_thread(void* args) {
             }
         }
     }
+    if ((int)args == 40) {
+        thread_set_affinity(thread_self(), 1 << 2);
+    }
     while (count--) {
         printf("thread %d %d\n", get_core_id(), (int)args);
         for (int i = 0; i < 9000000 * 5; i++);
-        if ((int)args == 10) {
+        if ((int)args == 10 || (int)args == 40) {
             if (count == 3) {
                 disp_disable();
-                while (count--) {
-                    printf("thread %d %d\n", get_core_id(), (int)args);
-                    for (int i = 0; i < 9000000 * 5; i++);
-                }
-                while(1);
+                printf("migrated...thread %d %d\n", get_core_id(), (int)args);
                 disp_enable(curdispatcher());
+                printf("migrated back...thread %d %d\n", get_core_id(), (int)args);
             }
         }
     }
