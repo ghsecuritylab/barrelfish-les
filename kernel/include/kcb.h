@@ -82,13 +82,12 @@ struct kcb {
 
 };
 
-///< The kernel control block
-extern struct kcb *kcb_current;
 ///< flag that indicates whether kcb scheduling should happen
 extern bool kcb_sched_suspended;
 
 static inline void print_kcb(void)
 {
+    struct kcb* kcb_current = GROUP_PER_CORE_KCB_CURRENT;
     printk(LOG_DEBUG, "kcb contents:\n");
     printk(LOG_DEBUG, "  next = %p, prev = %p\n",
             kcb_current->next, kcb_current->prev);
@@ -106,8 +105,8 @@ static inline void print_kcb(void)
 static inline void switch_kcb(struct kcb *next)
 {
     assert (next != NULL);
-    kcb_current = next;
-    mdb_init(kcb_current);
+    GROUP_PER_CORE_KCB_CURRENT = next;
+    mdb_init(GROUP_PER_CORE_KCB_CURRENT);
     // update queue tail to make associated assembly not choke
     //queue_tail = kcb_current->queue_tail;
 }

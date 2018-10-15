@@ -81,7 +81,6 @@ void set_cur_group_lazy(struct group* g)
 
     // prepare per core state in target group
     g->per_core_state[get_core_id()].dcb_current = GROUP_PER_CORE_DCB_CURRENT;
-    g->per_core_state[get_core_id()].kcb_current = NULL;
     group_add_core(g, get_core_id());
     group_remove_core(g, get_core_id());
 }
@@ -114,4 +113,15 @@ void group_bsp_init(void)
 void group_app_init(void)
 {
     group_init_common();
+}
+
+static struct kcb* kcb_current;
+struct kcb** get_kcb_current(void)
+{
+    if (kcb_current && global_group_mgmt && get_cur_group()) {
+        get_group(get_core_id())->kcb_current = kcb_current;
+        kcb_current = NULL;
+    }
+    struct kcb** res = &get_group(get_core_id())->kcb_current;
+    return *res ? res : &kcb_current;
 }

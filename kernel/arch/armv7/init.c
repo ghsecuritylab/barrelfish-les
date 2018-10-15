@@ -248,8 +248,8 @@ arch_init(struct arm_core_data *boot_core_data,
     exceptions_load_stacks();
 
     /* Relocate the KCB into our new address space. */
-    kcb_current= (struct kcb *)(lpaddr_t)core_data->kcb;
-    MSG("KCB at %p\n", kcb_current);
+    GROUP_PER_CORE_KCB_CURRENT = (struct kcb *)(lpaddr_t)core_data->kcb;
+    MSG("KCB at %p\n", GROUP_PER_CORE_KCB_CURRENT);
 
     MSG("Parsing command line\n");
     init_cmdargs();

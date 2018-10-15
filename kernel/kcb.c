@@ -22,6 +22,7 @@ bool kcb_sched_suspended = false;
 
 void kcb_add(struct kcb* new_kcb)
 {
+    struct kcb* kcb_current = GROUP_PER_CORE_KCB_CURRENT;
     if (kcb_current->next) {
         // Insert new KCB in ring
         assert(kcb_current->prev);
@@ -39,6 +40,7 @@ void kcb_add(struct kcb* new_kcb)
 
 errval_t kcb_remove(struct kcb *to_remove)
 {
+    struct kcb* kcb_current = GROUP_PER_CORE_KCB_CURRENT;
     if (to_remove == kcb_current) {
         if (to_remove->next->next == to_remove) {
             assert(to_remove->next->prev == to_remove);

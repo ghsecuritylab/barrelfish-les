@@ -21,6 +21,7 @@
 
 static struct dcb *schedule_leader_core(void)
 {
+    struct kcb* kcb_current = GROUP_PER_CORE_KCB_CURRENT;
     // empty ring
     if(kcb_current->dcb_ring == NULL) {
         return NULL;
@@ -38,6 +39,14 @@ static struct dcb *schedule_leader_core(void)
 
 static struct dcb *schedule_member_core(void)
 {
+    static int rate = 0;
+    // 二分之一时间去运行新group中的东西
+    rate++;
+    struct kcb* kcb_current = GROUP_PER_CORE_KCB_CURRENT;
+    if (rate % 2 == 0) {
+        kcb_current = get_cur_group()->kcb_current;
+    }
+
     // empty ring
     if(kcb_current->dcb_ring == NULL) {
         return NULL;
@@ -46,20 +55,21 @@ static struct dcb *schedule_member_core(void)
     assert(kcb_current->dcb_ring->next != NULL);
     assert(kcb_current->dcb_ring->prev != NULL);
 
-    struct dcb* step = kcb_current->dcb_ring;
-    do {
-        char* name = get_dispatcher_shared_generic(step->disp)->name;
-        if (!strcmp(name, "xmpl-group-test")) {
-            break;
-        }
-        step = step->next;
-    } while (step != kcb_current->dcb_ring);
-    if (step == kcb_current->dcb_ring) {
-        step = NULL;
-    }
-    kcb_current->per_core_state[get_core_id()].ring_current = step;
+    kcb_current->dcb_ring = kcb_current->dcb_ring->next;
+    // struct dcb* step = kcb_current->dcb_ring;
+    // do {
+    //     char* name = get_dispatcher_shared_generic(step->disp)->name;
+    //     if (!strcmp(name, "xmpl-group-test")) {
+    //         break;
+    //     }
+    //     step = step->next;
+    // } while (step != kcb_current->dcb_ring);
+    // if (step == kcb_current->dcb_ring) {
+    //     step = NULL;
+    // }
+    // kcb_current->per_core_state[get_core_id()].ring_current = step;
 
-    return step;
+    return kcb_current->dcb_ring;
 }
 
 /**
@@ -74,6 +84,7 @@ struct dcb *schedule(void)
 
 void make_runnable(struct dcb *dcb)
 {
+    struct kcb* kcb_current = GROUP_PER_CORE_KCB_CURRENT;
     // Insert into schedule ring if not in there already
     if(dcb->prev == NULL || dcb->next == NULL) {
         assert(dcb->prev == NULL && dcb->next == NULL);
@@ -103,6 +114,7 @@ void make_runnable(struct dcb *dcb)
  */
 void scheduler_remove(struct dcb *dcb)
 {
+    struct kcb* kcb_current = GROUP_PER_CORE_KCB_CURRENT;
     // No-op if not in scheduler ring
     if(dcb->prev == NULL || dcb->next == NULL) {
         assert(dcb->prev == NULL && dcb->next == NULL);
@@ -156,6 +168,7 @@ void scheduler_reset_time(void)
 
 void scheduler_convert(void)
 {
+    struct kcb* kcb_current = GROUP_PER_CORE_KCB_CURRENT;
     enum sched_state from = kcb_current->sched;
     switch (from) {
         case SCHED_RBED:

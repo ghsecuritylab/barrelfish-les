@@ -127,6 +127,9 @@ void disp_run(dispatcher_handle_t handle)
     check_notificators_disabled(handle);
 
     // Run, saving state of previous thread if required
+    if (!disp->initialized) {
+        disp->initialized = true;
+    }
     thread_run_disabled(handle);
 
     // NOTREACHED

@@ -675,15 +675,15 @@ void arm_kernel_startup(void)
         group_bsp_init();
 
         /* Initial KCB was allocated by the boot driver. */
-        assert(kcb_current);
+        assert(GROUP_PER_CORE_KCB_CURRENT);
 
         // Bring up init
         init_dcb = spawn_bsp_init(BSP_INIT_MODULE_NAME);
     } else {
         MSG("Doing non-BSP related bootup \n");
 
-        kcb_current = (struct kcb *)
-            local_phys_to_mem((lpaddr_t) kcb_current);
+        GROUP_PER_CORE_KCB_CURRENT = (struct kcb *)
+            local_phys_to_mem((lpaddr_t) GROUP_PER_CORE_KCB_CURRENT);
 
         /* Initialize the allocator with the information passed to us */
         app_alloc_phys_start = core_data->memory_base_start;

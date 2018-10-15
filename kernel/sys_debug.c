@@ -87,7 +87,7 @@ sys_debug_print_capabilities_cb(struct cte *cte, void *data) {
     errval_t err = mdb_find_cap_for_address(mem_to_local_phys((lvaddr_t) cte), &result);
     if (err_is_fail(err)) {
         printk(LOG_ERR, "Type of cap: %d, kernel address %p, phys. address 0x%"PRIxLPADDR"\n", cte->cap.type, cte, mem_to_local_phys((lvaddr_t) cte));
-        printk(LOG_ERR, "kcb_current = %p\n", kcb_current);
+        printk(LOG_ERR, "kcb_current = %p\n", GROUP_PER_CORE_KCB_CURRENT);
         printk(LOG_ERR, "%s:%s:%d \n", __FILE__, __FUNCTION__, __LINE__);
         mdb_dump_all_the_things();
         return err;

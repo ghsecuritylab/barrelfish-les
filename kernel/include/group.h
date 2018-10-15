@@ -12,7 +12,6 @@ struct group_per_core_state {
     bool enabled;
     /// Current execution dispatcher (when in system call or exception)
     struct dcb* dcb_current;
-    struct kcb* kcb_current;
 };
 
 struct dcb_per_core_state {
@@ -29,6 +28,7 @@ struct group {
     bool core_mask[MAX_CORE];
     struct group_per_core_state per_core_state[MAX_CORE];
     volatile int* lock;
+    struct kcb* kcb_current;
 };
 
 struct group_mgmt {
@@ -54,6 +54,9 @@ static inline struct dcb** get_dcb_current(void)
     return &get_cur_group()->per_core_state[get_core_id()].dcb_current;
 }
 
+struct kcb;
+struct kcb** get_kcb_current(void);
+
 static inline bool is_leader_core(void)
 {
     return get_core_id() == get_cur_group()->group_id;
@@ -71,5 +74,8 @@ static inline void unlock_cur_group(void)
 
 #define GROUP_PER_CORE_DCB_CURRENT (*get_dcb_current())
 #define GROUP_PER_CORE_DCB_CURRENT_DISABLED (GROUP_PER_CORE_DCB_CURRENT->per_core_state[get_core_id()].disabled)
+
+///< The kernel control block
+#define GROUP_PER_CORE_KCB_CURRENT (*get_kcb_current())
 
 void print_r0(void* ptr);

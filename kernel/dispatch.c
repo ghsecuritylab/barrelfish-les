@@ -167,7 +167,7 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
         dispatcher_get_disabled_save_area(handle);
 
     if(disp != NULL) {
-        disp->systime = systime_now() + kcb_current->kernel_off;
+        disp->systime = systime_now() + GROUP_PER_CORE_KCB_CURRENT->kernel_off;
         disp->group_id = get_cur_group()->group_id;
         disp->group_core_count = get_cur_group()->core_count;
         memcpy(disp->group_core_mask, get_cur_group()->core_mask, sizeof(get_cur_group()->core_mask));
@@ -177,10 +177,15 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
     if (!*get_dcb_scheduled(dcb)) {
         *get_dcb_scheduled(dcb) = true;
         if (!is_leader_core()) {
-            *get_dcb_disabled(dcb) = true;
-            dispatcher_set_disabled(dcb->disp, true);
-            printf("First time to schedule it, disp_run is %x\n", disp->dispatcher_run);
-            execute(disp->dispatcher_run);
+            if (!disp->initialized) {
+                // dispatcher not ready
+                GROUP_PER_CORE_DCB_CURRENT = NULL;
+                wait_for_interrupt();
+            } else {
+                *get_dcb_disabled(dcb) = true;
+                dispatcher_set_disabled(dcb->disp, true);
+                execute(disp->dispatcher_run);
+            }
         }
     }
 

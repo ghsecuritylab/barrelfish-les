@@ -660,7 +660,7 @@ struct sysret sys_yield(capaddr_t target)
     // Remove from queue when no work and no more messages and no missed wakeup
     systime_t wakeup = disp->wakeup;
     if (!disp->haswork && disp->lmp_delivered == disp->lmp_seen
-        && (wakeup == 0 || wakeup > (systime_now() + kcb_current->kernel_off))) {
+        && (wakeup == 0 || wakeup > (systime_now() + GROUP_PER_CORE_KCB_CURRENT->kernel_off))) {
 
         trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_SCHED_REMOVE,
             (uint32_t)(lvaddr_t)GROUP_PER_CORE_DCB_CURRENT & 0xFFFFFFFF);
@@ -725,8 +725,8 @@ struct sysret sys_suspend(bool do_halt)
         // the kcb we're currently running
         printk(LOG_NOTE, "in sys_suspend(<no_halt>)!\n");
         printk(LOG_NOTE, "calling switch_kcb!\n");
-        struct kcb *next = kcb_current->next;
-        kcb_current->next = NULL;
+        struct kcb *next = GROUP_PER_CORE_KCB_CURRENT->next;
+        GROUP_PER_CORE_KCB_CURRENT->next = NULL;
         switch_kcb(next);
         // enable kcb scheduler
         printk(LOG_NOTE, "enabling kcb scheduler!\n");
@@ -858,6 +858,6 @@ struct sysret sys_get_absolute_time(void)
     // of a second accuracy range.
     return (struct sysret) {
         .error = SYS_ERR_OK,
-        .value = systime_now() + kcb_current->kernel_off,
+        .value = systime_now() + GROUP_PER_CORE_KCB_CURRENT->kernel_off,
     };
 }

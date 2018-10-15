@@ -22,7 +22,7 @@
 /* wrapper to change the head, and update the next wakeup tick */
 void wakeup_set_queue_head(struct dcb *h)
 {
-    kcb_current->wakeup_queue_head = h;
+    GROUP_PER_CORE_KCB_CURRENT->wakeup_queue_head = h;
     #ifdef CONFIG_ONESHOT_TIMER
     // we changed the first dcb in the wakeup queue, which means
     // that we need to update the next tick value
@@ -39,7 +39,7 @@ void wakeup_remove(struct dcb *dcb)
 {
     if (dcb->wakeup_time != 0) {
         if (dcb->wakeup_prev == NULL) {
-            assert(kcb_current->wakeup_queue_head == dcb);
+            assert(GROUP_PER_CORE_KCB_CURRENT->wakeup_queue_head == dcb);
             set_queue_head(dcb->wakeup_next);
         } else {
             assert(dcb->wakeup_prev->wakeup_next == dcb);
@@ -65,10 +65,10 @@ void wakeup_set(struct dcb *dcb, systime_t waketime)
 
     dcb->wakeup_time = waketime;
 
-    for (struct dcb *d = kcb_current->wakeup_queue_head, *p = NULL; ; p = d, d = d->wakeup_next) {
+    for (struct dcb *d = GROUP_PER_CORE_KCB_CURRENT->wakeup_queue_head, *p = NULL; ; p = d, d = d->wakeup_next) {
         if (d == NULL || d->wakeup_time > waketime) {
             if (p == NULL) { // insert at head
-                assert(d == kcb_current->wakeup_queue_head);
+                assert(d == GROUP_PER_CORE_KCB_CURRENT->wakeup_queue_head);
                 dcb->wakeup_prev = NULL;
                 dcb->wakeup_next = d;
                 if (d != NULL) {
@@ -91,7 +91,7 @@ void wakeup_set(struct dcb *dcb, systime_t waketime)
 /// Check for wakeups, given the current time
 void wakeup_check(systime_t now)
 {
-    struct dcb *d = kcb_current->wakeup_queue_head, *next = NULL;
+    struct dcb *d = GROUP_PER_CORE_KCB_CURRENT->wakeup_queue_head, *next = NULL;
     for (; d != NULL && d->wakeup_time <= now; d = next) {
         next = d->wakeup_next;
         d->wakeup_time = 0;
@@ -107,5 +107,5 @@ void wakeup_check(systime_t now)
 
 bool wakeup_is_pending(void)
 {
-    return kcb_current->wakeup_queue_head != NULL;
+    return GROUP_PER_CORE_KCB_CURRENT->wakeup_queue_head != NULL;
 }

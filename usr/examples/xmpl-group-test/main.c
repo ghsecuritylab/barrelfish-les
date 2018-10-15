@@ -77,6 +77,7 @@ int main(int argc, char *argv[])
     b = thread_create(test_thread, (void *)40);
     thread_join(a, NULL);
     thread_join(b, NULL);
+    printf("exit group test\n");
 
     return 0;
 }

@@ -65,7 +65,7 @@ struct dispatcher_shared_generic {
     size_t      group_core_count;               ///< Core count in group
     bool        group_core_mask[MAX_CORE];                ///< Core mask in group
 
-    uint32_t    disabled_locked;
+    bool initialized;  ///< this dispatcher can be scheduled by member core iff initialized
 #ifdef __k1om__
     uint8_t     xeon_phi_id;
 #endif

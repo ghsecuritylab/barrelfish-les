@@ -25,8 +25,6 @@
 #include <mdb/mdb_tree.h>
 #include <trace/trace.h>
 
-struct kcb *kcb_current = NULL;
-
 coreid_t my_core_id;
 
 /// Quick way to find the base address of a cnode capability
@@ -137,15 +135,15 @@ struct dcb *spawn_module(struct spawn_state *st,
     // Don't want this to be part of the data section, as the memory backing
     // the data section of the kernel can and will disappear when we reboot a
     // core with a different kernel but want to restore the state
-    struct cte *rootcn = &kcb_current->init_rootcn;
-    mdb_init(kcb_current);
-    kcb_current->is_valid = true;
+    struct cte *rootcn = &GROUP_PER_CORE_KCB_CURRENT->init_rootcn;
+    mdb_init(GROUP_PER_CORE_KCB_CURRENT);
+    GROUP_PER_CORE_KCB_CURRENT->is_valid = true;
 #if defined(CONFIG_SCHEDULER_RR)
-    kcb_current->sched = SCHED_RR;
+    GROUP_PER_CORE_KCB_CURRENT->sched = SCHED_RR;
 #elif defined(CONFIG_SCHEDULER_RBED)
-    kcb_current->sched = SCHED_RBED;
+    GROUP_PER_CORE_KCB_CURRENT->sched = SCHED_RBED;
 #elif defined(CONFIG_SCHEDULER_SMP)
-    kcb_current->sched = SCHED_SMP;
+    GROUP_PER_CORE_KCB_CURRENT->sched = SCHED_SMP;
 #else
 #error invalid scheduler
 #endif
@@ -164,7 +162,7 @@ struct dcb *spawn_module(struct spawn_state *st,
         memset(&bspkcb_cap, 0, sizeof(struct capability));
         bspkcb_cap.type = ObjType_KernelControlBlock;
         bspkcb_cap.rights = CAPRIGHTS_ALLRIGHTS;
-        bspkcb_cap.u.kernelcontrolblock.kcb = kcb_current;
+        bspkcb_cap.u.kernelcontrolblock.kcb = GROUP_PER_CORE_KCB_CURRENT;
         // find slot in init rootcn
         struct cte *bspkcb = caps_locate_slot(CNODE(rootcn), ROOTCN_SLOT_BSPKCB);
         assert(bspkcb && bspkcb->cap.type == ObjType_Null);
