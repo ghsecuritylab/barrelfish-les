@@ -174,6 +174,11 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
     }
     TRACE(KERNEL, SC_YIELD, 1);
 
+    if (get_need_flush_tlb(dcb, get_core_id())) {
+        invalidate_tlb();
+        set_need_flush_tlb(dcb, 1 << get_core_id(), false);
+    }
+
     if (!*get_dcb_scheduled(dcb)) {
         *get_dcb_scheduled(dcb) = true;
         if (!is_leader_core()) {

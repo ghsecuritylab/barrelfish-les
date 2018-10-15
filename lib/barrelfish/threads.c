@@ -371,11 +371,13 @@ void thread_run_disabled(dispatcher_handle_t handle)
         if (next != CURRENT_THREAD_OF_DISP(disp_gen)) {
             fpu_context_switch(disp_gen, next);
             // save previous thread's state
+            assert_disabled(CURRENT_THREAD_OF_DISP(disp_gen)->saved_status);
             arch_registers_state_t *cur_regs = &CURRENT_THREAD_OF_DISP(disp_gen)->regs;
-            memcpy(cur_regs, enabled_area, sizeof(arch_registers_state_t));
+            memcpy(cur_regs, CURRENT_THREAD_OF_DISP(disp_gen)->saved_status, sizeof(arch_registers_state_t));
             CURRENT_THREAD_OF_DISP(disp_gen) = next;
             unlock_disp(handle);
             if (next) {
+                next->saved_status = enabled_area;
                 disp_resume(handle, &next->regs);
             } else {
                 sys_yield(CPTR_NULL);
@@ -383,7 +385,8 @@ void thread_run_disabled(dispatcher_handle_t handle)
         } else {
             // same thread as before
             unlock_disp(handle);
-            disp_resume(handle, enabled_area);
+            assert_disabled(CURRENT_THREAD_OF_DISP(disp_gen)->saved_status);
+            disp_resume(handle, CURRENT_THREAD_OF_DISP(disp_gen)->saved_status);
         }
     } else if (disp_gen->runq != NULL) {
         struct thread *next = thread_schedule(disp_gen, disp_gen->runq, disp_gen->runq);
@@ -398,6 +401,7 @@ void thread_run_disabled(dispatcher_handle_t handle)
             disp->haswork = true;
             fpu_context_switch(disp_gen, next);
             CURRENT_THREAD_OF_DISP(disp_gen) = next;
+            next->saved_status = enabled_area;
             unlock_disp(handle);
             disp_resume(handle, &next->regs);
         }
@@ -933,6 +937,7 @@ static int cleanup_thread(void *arg)
     thread_remove_from_queue(&disp_gen->runq, me);
     if (next != me) {
         CURRENT_THREAD_OF_DISP(disp_gen) = next;
+        next->saved_status = dispatcher_get_enabled_save_area(handle);
         disp_resume(handle, &next->regs);
     } else {
         CURRENT_THREAD_OF_DISP(disp_gen) = NULL;
@@ -980,6 +985,7 @@ void thread_exit(int status)
         if (next != me) {
             fpu_context_switch(disp_gen, next);
             CURRENT_THREAD_OF_DISP(disp_gen) = next;
+            next->saved_status = dispatcher_get_enabled_save_area(handle);
             disp_resume(handle, &next->regs);
         } else {
             CURRENT_THREAD_OF_DISP(disp_gen) = NULL;
@@ -1021,6 +1027,7 @@ void thread_exit(int status)
         disp_gen->cleanupthread->disp = handle;
         fpu_context_switch(disp_gen, dg->cleanupthread);
         CURRENT_THREAD_OF_DISP(disp_gen) = dg->cleanupthread;
+        dg->cleanupthread->saved_status = dispatcher_get_enabled_save_area(handle);
         disp_resume(handle, &dg->cleanupthread->regs);
     } else {
         // We're not detached -- wakeup joiner
@@ -1052,6 +1059,7 @@ void thread_exit(int status)
         if (next != me) {
             fpu_context_switch(disp_gen, next);
             CURRENT_THREAD_OF_DISP(disp_gen) = next;
+            next->saved_status = dispatcher_get_enabled_save_area(handle);
             disp_resume(handle, &next->regs);
         } else {
             CURRENT_THREAD_OF_DISP(disp_gen) = NULL;
@@ -1371,6 +1379,7 @@ void thread_init_disabled(dispatcher_handle_t handle, bool init_domain)
     thread_enqueue(thread, &disp_gen->runq);
     CURRENT_THREAD_OF_DISP(disp_gen) = thread;
     disp->haswork = true;
+    thread->saved_status = dispatcher_get_enabled_save_area(handle);
     disp_resume(handle, &thread->regs);
 }
 
@@ -1387,6 +1396,7 @@ void thread_init_remote(dispatcher_handle_t handle, struct thread *thread)
     thread_enqueue(thread, &disp_gen->runq);
     CURRENT_THREAD_OF_DISP_CORE(disp_gen, disp->group_id) = thread;
     disp->haswork = true;
+    thread->saved_status = dispatcher_get_enabled_save_area(handle);
     disp_resume(handle, &thread->regs);
 }
 
@@ -1716,5 +1726,6 @@ void thread_deliver_exception_disabled(dispatcher_handle_t handle,
                           stack_top, (lvaddr_t)cpuframe, (lvaddr_t)fpuframe,
                           hack_arg, (lvaddr_t)addr);
 
+    thread->saved_status = dispatcher_get_enabled_save_area(handle);
     disp_resume(handle, &thread->regs);
 }

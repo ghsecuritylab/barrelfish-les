@@ -81,6 +81,20 @@ static inline const char *get_disp_name(struct dcb *dcb)
     return dst->name;
 }
 
+static inline void set_need_flush_tlb(struct dcb* dcb, uint64_t core_mask, bool flag)
+{
+    for (int i = 0; i < MAX_CORE; i++) {
+        if (((1 << i) & core_mask) != 0) {
+            dcb->per_core_state[i].need_flush_tlb = flag;
+        }
+    }
+}
+
+static inline bool get_need_flush_tlb(struct dcb* dcb, coreid_t core_id)
+{
+    return dcb->per_core_state[core_id].need_flush_tlb;
+}
+
 #ifdef FPU_LAZY_CONTEXT_SWITCH
 void fpu_lazy_top(struct dcb *dcb);
 void fpu_lazy_bottom(struct dcb *dcb);

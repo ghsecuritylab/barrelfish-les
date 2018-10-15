@@ -159,7 +159,7 @@ void fatal_kernel_fault(uint32_t evector, lvaddr_t address,
     kprintf_end();
 
     printk(LOG_PANIC, "\n");
-    printk(LOG_PANIC, "Kernel fault at %08"PRIxLVADDR
+    printk(LOG_PANIC, "Kernel fault at %08"PRIxLVADDR"PC: %08"PRIxLVADDR
                       " vector %08"PRIx32"\n\n", address, evector);
     printk(LOG_PANIC, "Processor save_area at: %p\n", save_area);
 

@@ -85,6 +85,7 @@ struct thread {
 
     uint64_t            affinity, affinity_save; ///< Which cores this thread can run on
     int                 last_running_on;    ///< Which core this thread's state is saved on
+    arch_registers_state_t *saved_status;
 };
 
 void thread_enqueue(struct thread *thread, struct thread **queue);

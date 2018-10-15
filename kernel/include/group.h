@@ -18,6 +18,7 @@ struct dcb_per_core_state {
     struct group* group;
     bool disabled;
     bool scheduled; // ever scheduled in this core
+    bool need_flush_tlb;
 };
 
 struct group {

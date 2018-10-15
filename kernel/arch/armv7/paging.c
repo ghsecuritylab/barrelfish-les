@@ -408,6 +408,7 @@ caps_map_l1(struct capability* dest,
         }
 
         // Flush TLB if remapping.
+        set_need_flush_tlb(GROUP_PER_CORE_DCB_CURRENT, 0xffffffff, true);
         invalidate_tlb(); /* XXX selective */
         return SYS_ERR_OK;
     }
@@ -471,6 +472,7 @@ caps_map_l1(struct capability* dest,
               slot + i, entry, entry->raw);
     }
 
+    set_need_flush_tlb(GROUP_PER_CORE_DCB_CURRENT, 0xffffffff, true);
     invalidate_tlb(); /* XXX selective */
 
     return SYS_ERR_OK;
@@ -541,6 +543,7 @@ caps_map_l2(struct capability* dest,
     }
 
     // Flush TLB if remapping.
+    set_need_flush_tlb(GROUP_PER_CORE_DCB_CURRENT, 0xffffffff, true);
     invalidate_tlb(); /* XXX selective */
 
     return SYS_ERR_OK;
