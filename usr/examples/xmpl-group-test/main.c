@@ -6,20 +6,19 @@
 #include <barrelfish/spawn_client.h>
 #include <barrelfish/nameservice_client.h>
 
-const int target_core = 2;
 bool attach_complete;
 static void attach_reply(struct monitor_binding *b, coreid_t succ_core) {
     printf("Coreid %hhu attached\n", succ_core);
     attach_complete = true;
 }
 
-static void attach_test(int target) {
+static void attach_group(coreid_t target_core, groupid_t target_group) {
     struct monitor_binding *mb = get_monitor_binding();
  
     mb->rx_vtbl.attach_group_reply = attach_reply;
 
     attach_complete = false;
-    monitor_attach_group_request__tx(mb, NOP_CONT, target, get_core_id());
+    monitor_attach_group_request__tx(mb, NOP_CONT, target_core, target_group);
     while (1) {
         messages_wait_and_handle_next();
         if (attach_complete) {
@@ -66,7 +65,7 @@ int main(int argc, char *argv[])
     int target = 2;
 
     thread_set_affinity(a, 1 << target);
-    attach_test(target);
+    attach_group(target, get_core_id());
 
     thread_join(a, NULL);
     thread_join(b, NULL);
@@ -77,7 +76,8 @@ int main(int argc, char *argv[])
     b = thread_create(test_thread, (void *)40);
     thread_join(a, NULL);
     thread_join(b, NULL);
-    printf("exit group test\n");
 
+    attach_group(target, target);
+    printf("exit group test\n");
     return 0;
 }

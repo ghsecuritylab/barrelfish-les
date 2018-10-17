@@ -3,6 +3,7 @@
 #include <startup.h>
 #include <stdio.h>
 #include <cp15.h>
+#include <dispatch.h>
 // struct group_mgmt* global_group_mgmt __attribute__((section(".text")));
 static void group_init_globals(void)
 {
@@ -76,8 +77,6 @@ void set_cur_group_lazy(struct group* g)
     printf("???????*target: %x coreid: %d ????, got: %x\n", g->group_id, get_core_id(), g->got_base);
     global_group_mgmt->lazy_load_target_group[get_core_id()] = g;
     global_group_mgmt->can_update[get_core_id()] = false;
-    // XXX this should be moved to arch specified code
-    set_got_base_lazy(g->got_base);
 
     // prepare per core state in target group
     g->per_core_state[get_core_id()].dcb_current = GROUP_PER_CORE_DCB_CURRENT;
@@ -115,6 +114,11 @@ void group_app_init(void)
     group_init_common();
 }
 
+struct group_core_state* get_my_core_state(void)
+{
+    return &(global_group_mgmt->core_state[get_core_id()]);
+}
+
 static struct kcb* kcb_current;
 struct kcb** get_kcb_current(void)
 {
@@ -124,4 +128,10 @@ struct kcb** get_kcb_current(void)
     }
     struct kcb** res = &get_group(get_core_id())->kcb_current;
     return *res ? res : &kcb_current;
+}
+
+void group_run_disp(struct dcb* dcb)
+{
+    lvaddr_t g = get_group(get_dispatcher_shared_generic(dcb->disp)->group_id)->got_base;
+    set_got_base_lazy(g);
 }

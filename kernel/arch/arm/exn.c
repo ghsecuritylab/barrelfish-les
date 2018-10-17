@@ -159,9 +159,9 @@ void fatal_kernel_fault(uint32_t evector, lvaddr_t address,
     kprintf_end();
 
     printk(LOG_PANIC, "\n");
-    printk(LOG_PANIC, "Kernel fault at %08"PRIxLVADDR"PC: %08"PRIxLVADDR
+    printk(LOG_PANIC, "Kernel fault at %08"PRIxLVADDR
                       " vector %08"PRIx32"\n\n", address, evector);
-    printk(LOG_PANIC, "Processor save_area at: %p\n", save_area);
+    printk(LOG_PANIC, "Processor save_area at: %p, addr: %p\n", save_area, &save_area);
 
     for (i = 0; i < 16; i++) {
         const char *extrainfo = "";
@@ -279,11 +279,14 @@ void handle_irq_kernel(arch_registers_state_t* save_area,
 {
     /* In-kernel interrupts are bugs, except if we'd gone to sleep in
      * wait_for_interrupt(), in which case there is no current dispatcher. */
-    if(waiting_for_interrupt) {
-        waiting_for_interrupt= 0;
+    if(get_my_core_state()->waiting_for_interrupt) {
+        get_my_core_state()->waiting_for_interrupt= 0;
     }
     else {
-        fatal_kernel_fault(ARM_EVECTOR_IRQ, fault_pc, save_area);
+        arch_registers_state_t reg;
+        reg.named.pc = fault_pc;
+        printk(LOG_PANIC, "Kernel catch irq at %08"PRIxLVADDR"\n", fault_pc);
+        fatal_kernel_fault(ARM_EVECTOR_IRQ, fault_pc, &reg);
     }
 
     handle_irq(save_area, fault_pc, NULL);

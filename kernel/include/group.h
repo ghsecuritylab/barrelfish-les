@@ -32,12 +32,18 @@ struct group {
     struct kcb* kcb_current;
 };
 
+struct group_core_state {
+    volatile bool waiting_for_interrupt;
+};
+
 struct group_mgmt {
     struct group groups[MAX_CORE];      // 本机上所有的Group
     struct group* cur_group[MAX_CORE];  // 每个Core当前所属的Group
 
     struct group* lazy_load_target_group[MAX_CORE];
     int can_update[MAX_CORE]; //表明是否可以用lazy_load的值更新cur_group，在每次重新由用户态进入时则可以更新
+
+    struct group_core_state core_state[MAX_CORE];
 };
 
 extern struct group_mgmt *global_group_mgmt;
@@ -49,6 +55,8 @@ struct group* get_group(coreid_t coreid);
 struct group* get_cur_group_by_coreid(coreid_t coreid);
 struct group* get_cur_group(void);
 void set_cur_group_lazy(struct group* g);
+void group_run_disp(struct dcb* dcb);
+struct group_core_state* get_my_core_state(void);
 
 static inline struct dcb** get_dcb_current(void)
 {

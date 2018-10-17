@@ -56,20 +56,9 @@ static struct dcb *schedule_member_core(void)
     assert(kcb_current->dcb_ring->prev != NULL);
 
     kcb_current->dcb_ring = kcb_current->dcb_ring->next;
-    // struct dcb* step = kcb_current->dcb_ring;
-    // do {
-    //     char* name = get_dispatcher_shared_generic(step->disp)->name;
-    //     if (!strcmp(name, "xmpl-group-test")) {
-    //         break;
-    //     }
-    //     step = step->next;
-    // } while (step != kcb_current->dcb_ring);
-    // if (step == kcb_current->dcb_ring) {
-    //     step = NULL;
-    // }
-    // kcb_current->per_core_state[get_core_id()].ring_current = step;
 
-    return kcb_current->dcb_ring;
+    struct dcb* ret = kcb_current->dcb_ring;
+    return ret;
 }
 
 /**

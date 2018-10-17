@@ -467,6 +467,7 @@ $irq_kernel:
     mov r0, #0
     add sp, sp, #16                         // Discard scratch registers
     enter_sys r3
+    mov r1, lr
     // Call: void handle_irq_kernel(arch_registers_state_t* NULL,
     //                              uintptr_t fault_pc,
     //                              struct dispatcher_shared_generic *disp)

@@ -62,6 +62,7 @@ struct dispatcher_shared_generic {
     coreid_t    curr_core_id;                   ///< Core id of current core, in this part so kernel can update
 
     groupid_t   group_id;                       ///< Group id of this dispatcher
+    groupid_t   real_group_id;                       ///< Group id of this dispatcher
     size_t      group_core_count;               ///< Core count in group
     bool        group_core_mask[MAX_CORE];                ///< Core mask in group
 

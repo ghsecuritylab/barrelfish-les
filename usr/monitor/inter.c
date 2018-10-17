@@ -724,7 +724,7 @@ static void attach_group_request(struct intermon_binding *ib, coreid_t caller_co
     intermon_attach_group_reply__tx(ib, NOP_CONT, get_core_id());
 
     invoke_monitor_attach_group(target_group);
-    while (1) {}
+    __asm volatile ("wfi\n");
 }
 
 

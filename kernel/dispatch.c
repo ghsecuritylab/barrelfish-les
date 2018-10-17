@@ -166,11 +166,15 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
     arch_registers_state_t *disabled_area =
         dispatcher_get_disabled_save_area(handle);
 
-    if(disp != NULL) {
+    if (disp) {
         disp->systime = systime_now() + GROUP_PER_CORE_KCB_CURRENT->kernel_off;
-        disp->group_id = get_cur_group()->group_id;
-        disp->group_core_count = get_cur_group()->core_count;
-        memcpy(disp->group_core_mask, get_cur_group()->core_mask, sizeof(get_cur_group()->core_mask));
+        disp->real_group_id = get_cur_group()->group_id;
+        if(is_leader_core()) {
+            disp->group_id = get_cur_group()->group_id;
+            disp->group_core_count = get_cur_group()->core_count;
+            memcpy(disp->group_core_mask, get_cur_group()->core_mask, sizeof(get_cur_group()->core_mask));
+        }
+        group_run_disp(dcb);
     }
     TRACE(KERNEL, SC_YIELD, 1);
 

@@ -94,8 +94,6 @@ void __attribute__ ((noreturn)) resume(arch_registers_state_t *state)
     do_resume(state->regs);
 }
 
-bool waiting_for_interrupt= 0;
-
 /* XXX - not AArch64-compatible. */
 void wait_for_interrupt(void)
 {
@@ -108,13 +106,11 @@ void wait_for_interrupt(void)
 
     /* Let the IRQ handler know that we expect an interrupt in kernel mode, so
      * it shouldn't panic. */
-    waiting_for_interrupt= 1;
+    get_my_core_state()->waiting_for_interrupt = 1;
 
     unlock_cur_group();
 
     /* Unmask IRQ and wait. */
     __asm volatile("cpsie i");
     while(1) __asm volatile("wfi");
-
-    lock_cur_group();
 }
