@@ -34,6 +34,7 @@ static struct dcb *schedule_leader_core(void)
     #ifdef CONFIG_ONESHOT_TIMER
     update_sched_timer(kernel_now + kernel_timeslice);
     #endif
+
     return kcb_current->dcb_ring;
 }
 
@@ -73,7 +74,7 @@ struct dcb *schedule(void)
 
 void make_runnable(struct dcb *dcb)
 {
-    struct kcb* kcb_current = GROUP_PER_CORE_KCB_CURRENT;
+    struct kcb* kcb_current = GROUP_KCB_RUNNING;
     // Insert into schedule ring if not in there already
     if(dcb->prev == NULL || dcb->next == NULL) {
         assert(dcb->prev == NULL && dcb->next == NULL);
@@ -103,7 +104,7 @@ void make_runnable(struct dcb *dcb)
  */
 void scheduler_remove(struct dcb *dcb)
 {
-    struct kcb* kcb_current = GROUP_PER_CORE_KCB_CURRENT;
+    struct kcb* kcb_current = GROUP_KCB_RUNNING;
     // No-op if not in scheduler ring
     if(dcb->prev == NULL || dcb->next == NULL) {
         assert(dcb->prev == NULL && dcb->next == NULL);
@@ -157,7 +158,7 @@ void scheduler_reset_time(void)
 
 void scheduler_convert(void)
 {
-    struct kcb* kcb_current = GROUP_PER_CORE_KCB_CURRENT;
+    struct kcb* kcb_current = GROUP_KCB_RUNNING;
     enum sched_state from = kcb_current->sched;
     switch (from) {
         case SCHED_RBED:

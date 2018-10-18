@@ -183,18 +183,20 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
         set_need_flush_tlb(dcb, 1 << get_core_id(), false);
     }
 
+    if (!is_leader_core()) {
+        if (!disp->initialized) {
+            // dispatcher not ready
+            GROUP_PER_CORE_DCB_CURRENT = NULL;
+            wait_for_interrupt();
+        }
+    }
+
     if (!*get_dcb_scheduled(dcb)) {
         *get_dcb_scheduled(dcb) = true;
         if (!is_leader_core()) {
-            if (!disp->initialized) {
-                // dispatcher not ready
-                GROUP_PER_CORE_DCB_CURRENT = NULL;
-                wait_for_interrupt();
-            } else {
-                *get_dcb_disabled(dcb) = true;
-                dispatcher_set_disabled(dcb->disp, true);
-                execute(disp->dispatcher_run);
-            }
+            *get_dcb_disabled(dcb) = true;
+            dispatcher_set_disabled(dcb->disp, true);
+            execute(disp->dispatcher_run);
         }
     }
 

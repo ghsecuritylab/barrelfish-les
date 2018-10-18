@@ -34,6 +34,7 @@ struct group {
 
 struct group_core_state {
     volatile bool waiting_for_interrupt;
+    struct kcb* kcb_running;
 };
 
 struct group_mgmt {
@@ -65,6 +66,7 @@ static inline struct dcb** get_dcb_current(void)
 
 struct kcb;
 struct kcb** get_kcb_current(void);
+struct kcb** get_group_kcb_running(void);
 
 static inline bool is_leader_core(void)
 {
@@ -86,5 +88,6 @@ static inline void unlock_cur_group(void)
 
 ///< The kernel control block
 #define GROUP_PER_CORE_KCB_CURRENT (*get_kcb_current())
+#define GROUP_KCB_RUNNING (*get_group_kcb_running())
 
 void print_r0(void* ptr);

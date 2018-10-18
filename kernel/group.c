@@ -132,6 +132,13 @@ struct kcb** get_kcb_current(void)
 
 void group_run_disp(struct dcb* dcb)
 {
-    lvaddr_t g = get_group(get_dispatcher_shared_generic(dcb->disp)->group_id)->got_base;
+    groupid_t groupid = get_dispatcher_shared_generic(dcb->disp)->group_id;
+    struct group* dcb_group = get_group(groupid);
+    lvaddr_t g = dcb_group->got_base;
     set_got_base_lazy(g);
+}
+
+struct kcb** get_group_kcb_running(void)
+{
+    return &get_group(my_core_id)->kcb_current;
 }

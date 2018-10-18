@@ -51,7 +51,7 @@ void panic(const char *msg, ...)
     vsnprintf(buf, sizeof(buf), msg, ap);
     va_end(ap);
 
-    printf("kernel %d PANIC! %.*s\n", my_core_id, (int)sizeof(buf), buf);
+    printf("core: %d, kernel %d PANIC! %.*s\n", get_core_id(), my_core_id, (int)sizeof(buf), buf);
 
     halt();
 }
