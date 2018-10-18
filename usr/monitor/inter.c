@@ -721,9 +721,8 @@ static void forward_kcb_rm_response(struct intermon_binding *b, errval_t error)
 
 static void attach_group_request(struct intermon_binding *ib, coreid_t caller_core, groupid_t target_group) {
     printf("attach invoked by %d, my coreid is %d\n", (int)caller_core, (int)get_core_id());
-    intermon_attach_group_reply__tx(ib, NOP_CONT, get_core_id());
-
     invoke_monitor_attach_group(target_group);
+    intermon_attach_group_reply__tx(ib, NOP_CONT, get_core_id());
     __asm volatile ("wfi\n");
 }
 
