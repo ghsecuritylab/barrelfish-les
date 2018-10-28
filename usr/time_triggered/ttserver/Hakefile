@@ -1,0 +1,6 @@
+[ build application { target = "time_triggered/ttserver",
+                      cFiles = [ "main.c" ],
+                      flounderDefs = [ "ttserver" ],
+                      flounderExtraDefs = [ ("ttserver", ["rpcclient"]) ]
+                    }
+]

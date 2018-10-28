@@ -1,0 +1,8 @@
+interface ttserver "Time-triggered server interface" {
+    typedef uint64 target_id;
+    typedef uint64 errval_t;
+    
+    rpc init(in cap buf, out cap flag, out uint64 offset);
+    rpc tt_send(in target_id to, out errval_t err);
+    rpc tt_receive(in target_id from, out errval_t err);
+};

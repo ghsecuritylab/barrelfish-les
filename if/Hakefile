@@ -102,6 +102,7 @@
                "twl6030",
                "cm2",
                "xmpl_group",
+               "ttserver",
                "net_sockets"
            ],
              arch <- allArchitectures
