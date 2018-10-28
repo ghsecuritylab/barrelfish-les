@@ -36,6 +36,7 @@ module /armv7/sbin/corectrl auto
 module /armv7/sbin/angler serial0.terminal dumb
 module /armv7/sbin/fish nospawn
 module /armv7/sbin/examples/xmpl-group-test
+module /armv7/sbin/examples/xmpl-group
 
 module /armv7/sbin/memtest
 

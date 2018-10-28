@@ -101,6 +101,7 @@
                "net_filter",
                "twl6030",
                "cm2",
+               "xmpl_group",
                "net_sockets"
            ],
              arch <- allArchitectures
